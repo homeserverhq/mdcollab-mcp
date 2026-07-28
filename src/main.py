@@ -270,6 +270,8 @@ async def update_note_permissions(
 ) -> dict[str, Any]:
     """Update a note's permission settings.
 
+    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
+
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
             (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
@@ -296,6 +298,8 @@ async def set_note_user_permission(
     ctx: Context = None,
 ) -> dict[str, Any]:
     """Set a user's permission on a note.
+
+    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
@@ -340,6 +344,8 @@ async def set_note_group_permission(
 ) -> dict[str, Any]:
     """Set a group's permission on a note.
 
+    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
+
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
             (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
@@ -381,6 +387,8 @@ async def change_note_owner(
     ctx: Context = None,
 ) -> dict[str, Any]:
     """Change the owner of a note.
+
+    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.

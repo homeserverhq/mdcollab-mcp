@@ -240,7 +240,10 @@ class HedgeDocClient:
         data = await self.get(f"/api/v2/notes/{note_id}/metadata/permissions", api_key)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        if self.public_url and isinstance(result, dict):
+            result["note_url"] = f"{self.public_url}/n/{note_id}"
+        return result
 
     async def update_note_permissions(
         self,
@@ -260,6 +263,8 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
         result = _denormalize_response(data)
+        if self.public_url and isinstance(result, dict):
+            result["note_url"] = f"{self.public_url}/n/{note_id}"
         await self._touch_note_history(note_id, api_key)
         return result
 
@@ -279,6 +284,8 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
         result = _denormalize_response(data)
+        if self.public_url and isinstance(result, dict):
+            result["note_url"] = f"{self.public_url}/n/{note_id}"
         await self._touch_note_history(note_id, api_key)
         return result
 
@@ -293,6 +300,8 @@ class HedgeDocClient:
             api_key,
         )
         result = _denormalize_response(data)
+        if self.public_url and isinstance(result, dict):
+            result["note_url"] = f"{self.public_url}/n/{note_id}"
         await self._touch_note_history(note_id, api_key)
         return result
 
@@ -312,6 +321,8 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
         result = _denormalize_response(data)
+        if self.public_url and isinstance(result, dict):
+            result["note_url"] = f"{self.public_url}/n/{note_id}"
         await self._touch_note_history(note_id, api_key)
         return result
 
@@ -326,6 +337,8 @@ class HedgeDocClient:
             api_key,
         )
         result = _denormalize_response(data)
+        if self.public_url and isinstance(result, dict):
+            result["note_url"] = f"{self.public_url}/n/{note_id}"
         await self._touch_note_history(note_id, api_key)
         return result
 
