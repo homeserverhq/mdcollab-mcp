@@ -29,7 +29,6 @@ with full CRUD and permission management.
 |----------|----------|-------------|
 | `HEDGEDOC_BASE_URL` | Yes | Docker-internal URL of the HedgeDoc API (e.g. `http://hedgedoc-backend:3000`) |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on |
-| `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is silently forced to `False` for aggregate list operations. |
 | `IS_STATEFUL` | No | When `true`, uses stateful Streamable HTTP with session tracking. When `false` (default), uses stateless mode. |
 
 ## 📦 Installation & Local Development
@@ -67,15 +66,12 @@ The MCP server serves at `http://hedgedoc-mcp:80/mcp`
   on all `get_*` and `list_*` tools) controls whether all available fields
   are included in responses. Defaults to `False` for performance; set to
   `True` only when additional fields are needed.
-- **🔒 `ALLOW_ALL_AGGREGATE`** — Controls whether aggregate listing tools
-  respect the `include_all_fields` parameter. When set to `false` (default),
-  all aggregate list operations silently return only default fields regardless
-  of the caller's request.
 - **⚡ TOON Compression** — All bulk list responses are automatically
   compressed using TOON to reduce token consumption by 30–60%.
-- **📝 Raw Markdown** — Note creation and updates use raw markdown body, not
-  JSON. The `Content-Type` header is set to `text/markdown` automatically.
-  DELETE on notes sends a JSON body `{ "keepMedia": true }`.
+- **📝 Required Fields & Defaults** — Each `create_*` tool requires specific
+  key fields. All other fields default to empty strings or reasonable values.
+  The owner field is automatically set to the authenticated user for most
+  resources.
 
 ## 🛠️ API Tool Mapping
 
