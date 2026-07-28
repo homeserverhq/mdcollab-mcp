@@ -136,11 +136,13 @@ async def create_note(
     alias: str = "",
     ctx: Context = None,
 ) -> dict[str, Any]:
-    """Create a new note.
+    """Create a new note from markdown content.
 
     Args:
         content: Raw markdown content of the note.
-        alias: Optional alias for the note. If provided, creates a note with this alias.
+            (e.g. "# Hello\n\nThis is **bold**")
+        alias: Optional URL-friendly path for the note.
+            (e.g. "my-note") (Default: "")
     """
     params = CreateNoteParam(content=content, alias=alias)
     return await get_client().create_note(
@@ -159,6 +161,7 @@ async def get_note_by_id(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m" or "my-alias")
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_note_by_id(
@@ -176,7 +179,9 @@ async def update_note(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note to update.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
         content: New raw markdown content.
+            (e.g. "# Updated Title\n\nNew content here")
     """
     params = UpdateNoteParam(noteIdOrAlias=noteIdOrAlias, content=content)
     return await get_client().update_note(
@@ -195,7 +200,9 @@ async def delete_note_by_id(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note to delete.
-        keepMedia: Whether to keep the uploaded media files. Defaults to True.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        keepMedia: Preserve uploaded media files after deletion: true or false.
+            (Default: true)
     """
     params = DeleteNoteParam(noteIdOrAlias=noteIdOrAlias, keepMedia=keepMedia)
     await get_client().delete_note_by_id(
@@ -213,6 +220,7 @@ async def get_note_content(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
     """
     return await get_client().get_note_content(noteIdOrAlias, get_user_token())
 
@@ -227,6 +235,7 @@ async def get_note_metadata(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_note_metadata(
@@ -244,6 +253,7 @@ async def get_note_permissions(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_note_permissions(
@@ -262,8 +272,11 @@ async def update_note_permissions(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
-        sharedToUsers: List of user permissions, each with "username" and "canEdit".
-        sharedToGroups: List of group permissions, each with "groupName" and "canEdit".
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        sharedToUsers: List of user permissions. Each item: {"username": str, "canEdit": true or false}.
+            (e.g. [{"username": "alice", "canEdit": true}])
+        sharedToGroups: List of group permissions. Each item: {"groupName": str, "canEdit": true or false}.
+            (e.g. [{"groupName": "_EVERYONE", "canEdit": false}])
     """
     p = {
         "sharedToUsers": [u.model_dump() for u in sharedToUsers],
@@ -286,8 +299,10 @@ async def set_note_user_permission(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
         userName: Username of the user to set permission for.
-        canEdit: Whether the user can edit the note.
+            (e.g. "alice")
+        canEdit: Whether the user can edit the note: true or false.
     """
     params = SetUserPermissionParam(noteIdOrAlias=noteIdOrAlias, userName=userName, canEdit=canEdit)
     return await get_client().set_note_user_permission(
@@ -306,7 +321,9 @@ async def remove_note_user_permission(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
         userName: Username of the user to remove permission for.
+            (e.g. "alice")
     """
     params = RemoveUserPermissionParam(noteIdOrAlias=noteIdOrAlias, userName=userName)
     return await get_client().remove_note_user_permission(
@@ -325,8 +342,10 @@ async def set_note_group_permission(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
-        groupName: Name of the group (e.g. _LOGGED_IN, _EVERYONE).
-        canEdit: Whether the group can edit the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        groupName: Name of the group: _LOGGED_IN or _EVERYONE.
+            (e.g. "_EVERYONE")
+        canEdit: Whether the group can edit the note: true or false.
     """
     params = SetGroupPermissionParam(noteIdOrAlias=noteIdOrAlias, groupName=groupName, canEdit=canEdit)
     return await get_client().set_note_group_permission(
@@ -345,7 +364,9 @@ async def remove_note_group_permission(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
-        groupName: Name of the group to remove permission for.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        groupName: Name of the group: _LOGGED_IN or _EVERYONE.
+            (e.g. "_EVERYONE")
     """
     params = RemoveGroupPermissionParam(noteIdOrAlias=noteIdOrAlias, groupName=groupName)
     return await get_client().remove_note_group_permission(
@@ -363,7 +384,9 @@ async def change_note_owner(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
         newOwner: Username of the new owner.
+            (e.g. "alice")
     """
     params = ChangeOwnerParam(noteIdOrAlias=noteIdOrAlias, newOwner=newOwner)
     return await get_client().change_note_owner(
@@ -402,7 +425,9 @@ async def get_note_revision_by_id(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
-        revisionId: The ID of the revision to retrieve.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        revisionId: The numeric ID of the revision to retrieve.
+            (e.g. 1)
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_note_revision_by_id(
@@ -493,7 +518,8 @@ async def update_history_entry(
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
-        pinStatus: Whether the note is pinned in history.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        pinStatus: Whether the note is pinned in history: true or false.
     """
     params = UpdateHistoryEntryParam(noteIdOrAlias=noteIdOrAlias, pinStatus=pinStatus)
     return await get_client().update_history_entry(
@@ -564,6 +590,7 @@ async def get_media_by_id(
 
     Args:
         uuid: The UUID of the media file.
+            (e.g. "550e8400-e29b-41d4-a716-446655440000")
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_media_by_id(
@@ -580,6 +607,7 @@ async def delete_media_by_id(
 
     Args:
         uuid: The UUID of the media file to delete.
+            (e.g. "550e8400-e29b-41d4-a716-446655440000")
     """
     await get_client().delete_media_by_id(uuid, get_user_token())
     return {"deleted": True, "id": uuid}
@@ -595,11 +623,13 @@ async def add_alias(
     newAlias: str,
     ctx: Context = None,
 ) -> dict[str, Any]:
-    """Add an alias to a note.
+    """Add an alias (URL-friendly path) to a note.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
-        newAlias: The new alias to add.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        newAlias: The new URL-friendly alias to add.
+            (e.g. "my-custom-url")
     """
     params = AddAliasParam(noteIdOrAlias=noteIdOrAlias, newAlias=newAlias)
     return await get_client().add_alias(
@@ -618,7 +648,8 @@ async def make_alias_primary(
 
     Args:
         alias: The alias name to update.
-        primaryAlias: Whether this alias should be the primary alias.
+            (e.g. "my-custom-url")
+        primaryAlias: Whether this alias should be the primary alias: true or false.
     """
     params = MakeAliasPrimaryParam(alias=alias, primaryAlias=primaryAlias)
     return await get_client().make_alias_primary(
@@ -636,6 +667,7 @@ async def remove_alias(
 
     Args:
         alias: The alias name to remove.
+            (e.g. "my-custom-url")
     """
     params = RemoveAliasParam(alias=alias)
     await get_client().remove_alias(alias, get_user_token())
