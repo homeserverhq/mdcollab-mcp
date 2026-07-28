@@ -125,6 +125,11 @@ class MakeAliasPrimaryParam(BaseModel):
 class RemoveAliasParam(BaseModel):
     alias: str
 
+
+class RevertToRevisionParam(BaseModel):
+    noteIdOrAlias: str
+    revisionId: int
+
 # =============================================================================
 # Notes Tools
 # =============================================================================
@@ -399,6 +404,30 @@ async def change_note_owner(
     params = ChangeOwnerParam(noteIdOrAlias=noteIdOrAlias, newOwner=newOwner)
     return await get_client().change_note_owner(
         noteIdOrAlias, newOwner, get_user_token(),
+        include_all_fields=ALLOW_ALL_AGGREGATE
+    )
+
+
+@mcp.tool(tags={"write", "advanced", "hedgedoc"})
+async def revert_to_revision(
+    noteIdOrAlias: str,
+    revisionId: int,
+    ctx: Context = None,
+) -> dict[str, Any]:
+    """Revert a note to a previous revision.
+
+    Fetches the specified revision's content and overwrites the note with it.
+    Note: This is a workaround for HedgeDoc's missing WebSocket revert handler.
+
+    Args:
+        noteIdOrAlias: The unique ID or alias of the note.
+            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
+        revisionId: The numeric ID of the revision to revert to.
+            (e.g. 1)
+    """
+    params = RevertToRevisionParam(noteIdOrAlias=noteIdOrAlias, revisionId=revisionId)
+    return await get_client().revert_to_revision(
+        noteIdOrAlias, revisionId, get_user_token(),
         include_all_fields=ALLOW_ALL_AGGREGATE
     )
 

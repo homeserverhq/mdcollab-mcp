@@ -2,7 +2,7 @@
 
 This repository contains a Model Context Protocol (MCP) server that acts
 as a secure, multi-tenant proxy between an AI Assistant and the HedgeDoc
-backend API. It exposes **29 MCP tools** covering 5 resource domains
+backend API. It exposes **30 MCP tools** covering 5 resource domains
 with full CRUD and permission management.
 
 ## ✨ Features
@@ -13,14 +13,14 @@ with full CRUD and permission management.
 - **👥 Multi-Tenancy** — Uses Python `contextvars` to maintain thread-safe
   user identity isolation, ensuring all AI-driven actions are scoped to
   the authenticated user's permissions.
-- **📊 Full HedgeDoc Coverage** — 29 tools mapped to HedgeDoc API endpoints
+- **📊 Full HedgeDoc Coverage** — 30 tools mapped to HedgeDoc API endpoints
   across 5 resource domains.
 - **⚡ TOON Optimization** — Bulk list responses are automatically compressed
   using TOON (Token-Optimized Object Notation) to reduce token consumption
   and maximize context window efficiency.
 - **🚀 Efficient Gets** — GET responses return only commonly used fields by
   default. Full objects are available via an `include_all_fields` flag.
-- **🧪 Comprehensive Testing** — 31 automated tests covering all tool
+- **🧪 Comprehensive Testing** — 32 automated tests covering all tool
   domains, run via the test runner pipeline.
 
 ## 🔧 Environment Variables
@@ -79,9 +79,9 @@ The MCP server serves at `http://hedgedoc-mcp:80/mcp` (Streamable HTTP).
 
 ## 🛠️ API Tool Mapping
 
-The server implements 29 MCP tools organized into the following categories:
+The server implements 30 MCP tools organized into the following categories:
 
-### 📄 Notes Core (12 tools)
+### 📄 Notes Core (13 tools)
 
 - `create_note` — Create a new note from markdown content
 - `get_note_by_id` — Get a single note by ID or alias
@@ -95,6 +95,7 @@ The server implements 29 MCP tools organized into the following categories:
 - `add_alias` — Add an alias to a note
 - `make_alias_primary` — Set an alias as primary or non-primary
 - `remove_alias` — Remove an alias from a note
+- `revert_to_revision` — Revert a note to a previous revision
 
 ### 🔐 Notes Permissions (7 tools)
 

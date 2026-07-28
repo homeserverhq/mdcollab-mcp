@@ -398,6 +398,32 @@ class HedgeDocClient:
             data = _filter_fields(data, COMMON_FIELDS["revision"])
         return _denormalize_response(data)
 
+    async def revert_to_revision(
+        self,
+        note_id: str,
+        revision_id: int,
+        api_key: Optional[str] = None,
+        include_all_fields: bool = False,
+    ) -> Any:
+        revision = await self.get(
+            f"/api/v2/notes/{note_id}/revisions/{revision_id}", api_key,
+        )
+        if revision is None or not isinstance(revision, dict):
+            raise Exception("Revision not found")
+        content = revision.get("content")
+        if content is None:
+            raise Exception("Revision has no content field")
+        data = await self.request(
+            "PUT", f"/api/v2/notes/{note_id}", api_key,
+            content=content,
+            extra_headers={"Content-Type": "text/markdown"},
+        )
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["note"])
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return self._add_note_url(result)
+
     async def list_note_media(
         self,
         note_id: str,
