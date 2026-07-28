@@ -28,6 +28,7 @@ with full CRUD and permission management.
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `HEDGEDOC_BASE_URL` | Yes | Docker-internal URL of the HedgeDoc API (e.g. `http://hedgedoc-backend:3000`) |
+| `HEDGEDOC_PUBLIC_URL` | No | Public-facing URL for `note_url` in responses. Defaults to `HEDGEDOC_BASE_URL` if not set. |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on |
 | `IS_STATEFUL` | No | When `true`, uses stateful Streamable HTTP with session tracking. When `false` (default), uses stateless mode. |
 

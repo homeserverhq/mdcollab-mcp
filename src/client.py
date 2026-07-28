@@ -63,6 +63,7 @@ def _denormalize_response(data: Any) -> Any:
 class HedgeDocClient:
     def __init__(self, base_url: Optional[str] = None):
         self.base_url = (base_url or os.getenv("HEDGEDOC_BASE_URL", "")).rstrip("/")
+        self.public_url = (os.getenv("HEDGEDOC_PUBLIC_URL", "") or self.base_url).rstrip("/")
         if not self.base_url:
             raise ValueError(
                 "HedgeDoc URL required. Set HEDGEDOC_BASE_URL env var "
@@ -118,6 +119,22 @@ class HedgeDocClient:
         except Exception:
             pass
 
+    def _add_note_url(self, data: Any) -> Any:
+        if not self.public_url:
+            return data
+        if isinstance(data, list):
+            return [self._add_note_url(item) for item in data]
+        if isinstance(data, dict):
+            note_id = (
+                data.get("metadata", {}).get("id", "")
+                or data.get("id", "")
+                or data.get("identifier", "")
+                or data.get("noteId", "")
+            )
+            if note_id:
+                data["note_url"] = f"{self.public_url}/n/{note_id}"
+        return data
+
     # =========================================================================
     # Notes Domain
     # =========================================================================
@@ -139,6 +156,7 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
+        result = self._add_note_url(result)
         note_id = (result if isinstance(result, dict) else {}).get("metadata", {}).get("id", "")
         if note_id:
             await self._touch_note_history(note_id, api_key)
@@ -155,7 +173,8 @@ class HedgeDocClient:
             raise Exception("Resource not found")
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_note_url(result)
 
     async def update_note(
         self,
@@ -174,7 +193,7 @@ class HedgeDocClient:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
         await self._touch_note_history(note_id, api_key)
-        return result
+        return self._add_note_url(result)
 
     async def delete_note_by_id(
         self,
@@ -207,7 +226,8 @@ class HedgeDocClient:
             raise Exception("Resource not found")
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_metadata"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_note_url(result)
 
     async def get_note_permissions(
         self,
@@ -323,7 +343,7 @@ class HedgeDocClient:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
         await self._touch_note_history(note_id, api_key)
-        return result
+        return self._add_note_url(result)
 
     async def list_note_revisions(
         self,
@@ -385,7 +405,8 @@ class HedgeDocClient:
         data = await self.get("/api/v2/me/history", api_key)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["history"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_note_url(result)
 
     async def get_history_entry(
         self,
@@ -398,7 +419,8 @@ class HedgeDocClient:
             raise Exception("Resource not found")
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["history"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_note_url(result)
 
     async def update_history_entry(
         self,
@@ -415,7 +437,7 @@ class HedgeDocClient:
             data = _filter_fields(data, COMMON_FIELDS["history"])
         result = _denormalize_response(data)
         await self._touch_note_history(note_id, api_key)
-        return result
+        return self._add_note_url(result)
 
     async def delete_history_entry(
         self,
@@ -432,7 +454,8 @@ class HedgeDocClient:
         data = await self.get("/api/v2/me/notes", api_key)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_metadata"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_note_url(result)
 
     async def list_all_my_media(
         self,
@@ -482,6 +505,7 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["alias"])
         result = _denormalize_response(data)
+        result = self._add_note_url(result)
         note_id = (result if isinstance(result, dict) else {}).get("noteId", "") or payload.get("noteIdOrAlias", "")
         if note_id:
             await self._touch_note_history(note_id, api_key)
@@ -501,6 +525,7 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["alias"])
         result = _denormalize_response(data)
+        result = self._add_note_url(result)
         note_id = (result if isinstance(result, dict) else {}).get("noteId", "")
         if note_id:
             await self._touch_note_history(note_id, api_key)
