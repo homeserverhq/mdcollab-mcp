@@ -112,6 +112,12 @@ class HedgeDocClient:
     async def delete(self, path: str, api_key: Optional[str] = None, **kwargs: Any) -> Any:
         return await self.request("DELETE", path, api_key, **kwargs)
 
+    async def _touch_note_history(self, note_id: str, api_key: Optional[str] = None) -> None:
+        try:
+            await self.get(f"/api/v2/notes/{note_id}", api_key)
+        except Exception:
+            pass
+
     # =========================================================================
     # Notes Domain
     # =========================================================================
@@ -132,7 +138,11 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        note_id = (result if isinstance(result, dict) else {}).get("metadata", {}).get("id", "")
+        if note_id:
+            await self._touch_note_history(note_id, api_key)
+        return result
 
     async def get_note_by_id(
         self,
@@ -162,7 +172,9 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def delete_note_by_id(
         self,
@@ -170,6 +182,7 @@ class HedgeDocClient:
         payload: dict[str, Any],
         api_key: Optional[str] = None,
     ) -> Any:
+        await self._touch_note_history(note_id, api_key)
         return await self.delete(
             f"/api/v2/notes/{note_id}", api_key,
             json={"keepMedia": payload.get("keepMedia", True)},
@@ -224,7 +237,9 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def set_note_user_permission(
         self,
@@ -241,7 +256,9 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def remove_note_user_permission(
         self,
@@ -253,7 +270,9 @@ class HedgeDocClient:
             f"/api/v2/notes/{note_id}/metadata/permissions/users/{user_name}",
             api_key,
         )
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def set_note_group_permission(
         self,
@@ -270,7 +289,9 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def remove_note_group_permission(
         self,
@@ -282,7 +303,9 @@ class HedgeDocClient:
             f"/api/v2/notes/{note_id}/metadata/permissions/groups/{group_name}",
             api_key,
         )
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def change_note_owner(
         self,
@@ -298,7 +321,9 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def list_note_revisions(
         self,
@@ -388,7 +413,9 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["history"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        await self._touch_note_history(note_id, api_key)
+        return result
 
     async def delete_history_entry(
         self,
@@ -454,7 +481,11 @@ class HedgeDocClient:
         data = await self.post("/api/v2/alias", api_key, json=payload)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["alias"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        note_id = (result if isinstance(result, dict) else {}).get("noteId", "") or payload.get("noteIdOrAlias", "")
+        if note_id:
+            await self._touch_note_history(note_id, api_key)
+        return result
 
     async def make_alias_primary(
         self,
@@ -469,13 +500,18 @@ class HedgeDocClient:
         )
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["alias"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        note_id = (result if isinstance(result, dict) else {}).get("noteId", "")
+        if note_id:
+            await self._touch_note_history(note_id, api_key)
+        return result
 
     async def remove_alias(
         self,
         alias: str,
         api_key: Optional[str] = None,
     ) -> Any:
+        await self._touch_note_history(alias, api_key)
         return await self.delete(f"/api/v2/alias/{alias}", api_key)
 
     # =========================================================================
