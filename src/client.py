@@ -135,6 +135,17 @@ class HedgeDocClient:
                 data["note_url"] = f"{self.public_url}/n/{note_id}"
         return data
 
+    def _add_media_url(self, data: Any) -> Any:
+        if not self.public_url:
+            return data
+        if isinstance(data, list):
+            return [self._add_media_url(item) for item in data]
+        if isinstance(data, dict):
+            uuid = data.get("uuid", "")
+            if uuid:
+                data["media_url"] = f"{self.public_url}/media/{uuid}"
+        return data
+
     # =========================================================================
     # Notes Domain
     # =========================================================================
@@ -396,7 +407,8 @@ class HedgeDocClient:
         data = await self.get(f"/api/v2/notes/{note_id}/media", api_key)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["media"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_media_url(result)
 
     # =========================================================================
     # Me/Profile Domain
@@ -480,7 +492,8 @@ class HedgeDocClient:
         data = await self.get("/api/v2/me/media", api_key)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["media"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_media_url(result)
 
     # =========================================================================
     # Media Domain
@@ -497,7 +510,8 @@ class HedgeDocClient:
             raise Exception("Resource not found")
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["media"])
-        return _denormalize_response(data)
+        result = _denormalize_response(data)
+        return self._add_media_url(result)
 
     async def delete_media_by_id(
         self,
