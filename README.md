@@ -2,7 +2,7 @@
 
 This repository contains a Model Context Protocol (MCP) server that acts
 as a secure, multi-tenant proxy between an AI Assistant and the HedgeDoc
-backend API. It exposes **30 MCP tools** covering 5 resource domains
+backend API. It exposes **24 MCP tools** covering 4 resource domains
 with full CRUD and permission management.
 
 ## ✨ Features
@@ -13,14 +13,14 @@ with full CRUD and permission management.
 - **👥 Multi-Tenancy** — Uses Python `contextvars` to maintain thread-safe
   user identity isolation, ensuring all AI-driven actions are scoped to
   the authenticated user's permissions.
-- **📊 Full HedgeDoc Coverage** — 30 tools mapped to HedgeDoc API endpoints
-  across 5 resource domains.
+- **📊 Full HedgeDoc Coverage** — 24 tools mapped to HedgeDoc API endpoints
+  across 4 resource domains.
 - **⚡ TOON Optimization** — Bulk list responses are automatically compressed
   using TOON (Token-Optimized Object Notation) to reduce token consumption
   and maximize context window efficiency.
 - **🚀 Efficient Gets** — GET responses return only commonly used fields by
   default. Full objects are available via an `include_all_fields` flag.
-- **🧪 Comprehensive Testing** — 32 automated tests covering all tool
+- **🧪 Comprehensive Testing** — 25 automated tests covering all tool
   domains, run via the test runner pipeline.
 
 ## 🔧 Environment Variables
@@ -79,7 +79,7 @@ The MCP server serves at `http://hedgedoc-mcp:80/mcp` (Streamable HTTP).
 
 ## 🛠️ API Tool Mapping
 
-The server implements 30 MCP tools organized into the following categories:
+The server implements 24 MCP tools organized into the following categories:
 
 ### 📄 Notes Core (13 tools)
 
@@ -91,16 +91,15 @@ The server implements 30 MCP tools organized into the following categories:
 - `get_note_metadata` — Get a note's metadata (title, tags, etc.)
 - `list_note_media` — List all media files attached to a note
 - `list_note_revisions` — List all revisions of a note
-- `get_note_revision_by_id` — Get a specific revision by ID
+- `get_note_revision_by_id` — Get a specific revision by UUID
 - `add_alias` — Add an alias to a note
 - `make_alias_primary` — Set an alias as primary or non-primary
 - `remove_alias` — Remove an alias from a note
 - `revert_to_revision` — Revert a note to a previous revision
 
-### 🔐 Notes Permissions (7 tools)
+### 🔐 Notes Permissions (6 tools)
 
 - `get_note_permissions` — Get a note's permission settings
-- `update_note_permissions` — Update a note's permission settings
 - `set_note_user_permission` — Set a user's permission on a note
 - `remove_note_user_permission` — Remove a user's permission from a note
 - `set_note_group_permission` — Set a group's permission on a note
@@ -113,15 +112,7 @@ The server implements 30 MCP tools organized into the following categories:
 - `list_all_my_notes` — List all notes owned by the current user
 - `list_all_my_media` — List all media files owned by the current user
 
-### 📋 History (4 tools)
+### 📁 System & Media (2 tools)
 
-- `list_all_history` — List the current user's note history
-- `get_history_entry` — Get a single history entry by note ID or alias
-- `update_history_entry` — Update a history entry's pin status
-- `delete_history_entry` — Delete a history entry by note ID or alias
-
-### 📁 System & Media (3 tools)
-
-- `check_server_status` — Check the HedgeDoc server status and statistics
 - `get_media_by_id` — Get a single media file by UUID
 - `delete_media_by_id` — Delete a media file by UUID

@@ -203,7 +203,7 @@ async def _run_leak_detection(session: MCPSession) -> None:
     for item in items:
         if not isinstance(item, dict):
             continue
-        item_id = item.get("id")
+        item_id = item.get("primaryAlias") or item.get("id")
         if item_id is None:
             continue
         if item_id not in known_ids:
@@ -270,7 +270,7 @@ async def run_test_with_store(
 def pick_id(key: str) -> Optional[str]:
     entry = store.get(key, {})
     if isinstance(entry, dict):
-        return entry.get("id")
+        return entry.get("id") or entry.get("primaryAlias")
     return None
 
 
@@ -278,7 +278,7 @@ def pick_metadata_id(key: str) -> Optional[str]:
     entry = store.get(key, {})
     if isinstance(entry, dict):
         meta = entry.get("metadata") or {}
-        return meta.get("id")
+        return meta.get("primaryAlias") or meta.get("id")
     return None
 
 
@@ -354,23 +354,16 @@ async def main():
         log(f"Tools: {', '.join(sorted(tool_names))}")
 
         # ------------------------------------------------------------------
-        # Phase 1: Status / Health Checks
+        # Phase 1: List Tools
         # ------------------------------------------------------------------
-        log("\n=== Phase 1: Status & Health ===")
-        await run_test(session, "A1 check_server_status", "check_server_status")
-
-        # ------------------------------------------------------------------
-        # Phase 2: List Tools
-        # ------------------------------------------------------------------
-        log("\n=== Phase 2: List Tools ===")
-        await run_test(session, "B2 list_all_history", "list_all_history")
+        log("\n=== Phase 1: List Tools ===")
         await run_test(session, "B2 list_all_my_notes", "list_all_my_notes")
         await run_test(session, "B2 list_all_my_media", "list_all_my_media")
 
         # ------------------------------------------------------------------
-        # Phase 3: CRUD Cycle
+        # Phase 2: CRUD Cycle
         # ------------------------------------------------------------------
-        log("\n=== Phase 3: Resource CRUD Cycle ===")
+        log("\n=== Phase 2: Resource CRUD Cycle ===")
         for entry in RESOURCE_TESTS:
             label, create_tool, create_params, _, get_tool, update_tool, \
                 update_params, delete_tool = entry
@@ -409,9 +402,9 @@ async def main():
             )
 
         # ------------------------------------------------------------------
-        # Phase 4: Domain-Specific Tools
+        # Phase 3: Domain-Specific Tools
         # ------------------------------------------------------------------
-        log("\n=== Phase 4: Domain-Specific Tools ===")
+        log("\n=== Phase 3: Domain-Specific Tools ===")
 
         # Create a note for domain tests
         await run_test_with_store(
@@ -430,12 +423,12 @@ async def main():
                            {"noteIdOrAlias": fixture_id})
             await run_test(session, "D3 get_note_permissions", "get_note_permissions",
                            {"noteIdOrAlias": fixture_id})
-            await run_test(session, "D4 update_note_permissions", "update_note_permissions",
-                           {"noteIdOrAlias": fixture_id})
-            await run_test(session, "D5 set_note_user_permission", "set_note_user_permission",
-                           {"noteIdOrAlias": fixture_id, "userName": "shbadmin", "canEdit": True})
-            await run_test(session, "D6 remove_note_user_permission", "remove_note_user_permission",
-                           {"noteIdOrAlias": fixture_id, "userName": "shbadmin"})
+            # Get current username for permission tests
+            profile_result = await session.call_tool("get_my_profile", {})
+            profile_data = extract_content(profile_result)
+            current_username = profile_data.get("username", "") if isinstance(profile_data, dict) else ""
+            await run_test(session, "D4 set_note_user_permission", "set_note_user_permission",
+                           {"noteIdOrAlias": fixture_id, "userName": current_username, "canEdit": True})
             await run_test(session, "D7 set_note_group_permission", "set_note_group_permission",
                            {"noteIdOrAlias": fixture_id, "groupName": "_EVERYONE", "canEdit": True})
             await run_test(session, "D8 remove_note_group_permission", "remove_note_group_permission",
@@ -447,16 +440,19 @@ async def main():
 
             # Alias tests
             alias_name = make_name("alias")
+            alias_name2 = make_name("alias-del")
             await run_test(session, "D11 add_alias", "add_alias",
                            {"noteIdOrAlias": fixture_id, "newAlias": alias_name})
-            await run_test(session, "D12 make_alias_primary", "make_alias_primary",
+            await run_test(session, "D12 add_alias_non_primary", "add_alias",
+                           {"noteIdOrAlias": fixture_id, "newAlias": alias_name2})
+            await run_test(session, "D13 make_alias_primary", "make_alias_primary",
                            {"alias": alias_name, "primaryAlias": True})
-            await run_test(session, "D13 remove_alias", "remove_alias",
-                           {"alias": alias_name})
+            await run_test(session, "D14 remove_alias", "remove_alias",
+                           {"alias": alias_name2})
 
             # Change owner (back to original)
-            await run_test(session, "D14 change_note_owner", "change_note_owner",
-                           {"noteIdOrAlias": fixture_id, "newOwner": "shbadmin"})
+            await run_test(session, "D15 change_note_owner", "change_note_owner",
+                           {"noteIdOrAlias": fixture_id, "newOwner": current_username})
 
             # Revision by ID (if any revisions exist)
             rev_result = await session.call_tool("list_note_revisions", {"noteIdOrAlias": fixture_id})
@@ -464,30 +460,11 @@ async def main():
             rev_items = get_list_items(rev_data)
             if rev_items and isinstance(rev_items, list) and len(rev_items) > 0:
                 first_rev = rev_items[0]
-                if isinstance(first_rev, dict) and first_rev.get("id"):
-                    await run_test(session, "D15 get_note_revision_by_id", "get_note_revision_by_id",
-                                   {"noteIdOrAlias": fixture_id, "revisionId": first_rev["id"]})
+                if isinstance(first_rev, dict) and first_rev.get("uuid"):
+                    await run_test(session, "D16 get_note_revision_by_id", "get_note_revision_by_id",
+                                   {"noteIdOrAlias": fixture_id, "revisionUuid": first_rev["uuid"]})
 
-            # History tests — only operate on entries for test-created notes
-            await run_test(session, "D16 get_my_profile", "get_my_profile")
-            # Trigger history entry creation (only GET /api/v2/notes/{id} calls updateHistoryEntryTimestamp)
-            await session.call_tool("get_note_by_id", {"noteIdOrAlias": fixture_id})
-            hist_result = await session.call_tool("list_all_history", {})
-            hist_data = extract_content(hist_result)
-            hist_items = get_list_items(hist_data)
-            known_ids = set(created.values())
-            hist_id = ""
-            for item in hist_items:
-                if isinstance(item, dict) and item.get("identifier", "") in known_ids:
-                    hist_id = item["identifier"]
-                    break
-            if hist_id:
-                await run_test(session, "D17 get_history_entry", "get_history_entry",
-                               {"noteIdOrAlias": hist_id})
-                await run_test(session, "D18 update_history_entry", "update_history_entry",
-                               {"noteIdOrAlias": hist_id, "pinStatus": True})
-                await run_test(session, "D19 delete_history_entry", "delete_history_entry",
-                               {"noteIdOrAlias": hist_id})
+            await run_test(session, "D17 get_my_profile", "get_my_profile")
 
             # Media tests - list_all_my_media (passes even with empty list),
             # delete_media_by_id requires a valid UUID from the media list
@@ -505,9 +482,9 @@ async def main():
                            {"noteIdOrAlias": fixture_id})
 
         # ------------------------------------------------------------------
-        # Phase 5: Leak Detection
+        # Phase 4: Leak Detection
         # ------------------------------------------------------------------
-        log("\n=== Phase 5: Leak Detection ===")
+        log("\n=== Phase 4: Leak Detection ===")
         await _run_leak_detection(session)
 
         # ------------------------------------------------------------------

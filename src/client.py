@@ -8,13 +8,12 @@ import httpx
 
 COMMON_FIELDS: dict[str, set[str]] = {
     "note": {"metadata"},
-    "note_metadata": {"id", "primaryAddress", "title", "tags", "updateUsername", "viewCount", "version"},
+    "note_metadata": {"primaryAlias", "title", "description", "tags", "version", "updatedAt", "createdAt", "editedBy", "lastUpdatedBy", "permissions"},
     "note_permissions": {"owner", "sharedToUsers", "sharedToGroups"},
-    "media": {"uuid", "fileName", "noteId", "username"},
-    "history": {"identifier", "title", "owner", "tags", "pinStatus"},
-    "revision": {"id", "length", "authorUsernames", "title", "tags"},
+    "media": {"uuid", "fileName", "linkedNoteCount", "username"},
+    "revision": {"uuid", "length", "authorUsernames", "title", "tags", "description"},
     "profile": {"username", "displayName"},
-    "alias": {"name", "primaryAlias", "noteId"},
+    "alias": {"name", "isPrimaryAlias"},
 }
 
 
@@ -71,7 +70,7 @@ class HedgeDocClient:
             )
 
     def _get_headers(self, api_key: Optional[str] = None) -> dict[str, str]:
-        headers = {"Content-Type": "application/json"}
+        headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         return headers
@@ -86,6 +85,9 @@ class HedgeDocClient:
         url = f"{self.base_url}{path}"
         headers = self._get_headers(api_key)
         extra_headers = kwargs.pop("extra_headers", {})
+        has_body = "content" in kwargs or "json" in kwargs or "data" in kwargs or "files" in kwargs
+        if has_body:
+            headers["Content-Type"] = kwargs.pop("content_type", "application/json")
         headers.update(extra_headers)
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.request(method, url, headers=headers, **kwargs)
@@ -113,24 +115,13 @@ class HedgeDocClient:
     async def delete(self, path: str, api_key: Optional[str] = None, **kwargs: Any) -> Any:
         return await self.request("DELETE", path, api_key, **kwargs)
 
-    async def _touch_note_history(self, note_id: str, api_key: Optional[str] = None) -> None:
-        try:
-            await self.get(f"/api/v2/notes/{note_id}", api_key)
-        except Exception:
-            pass
-
     def _add_note_url(self, data: Any) -> Any:
         if not self.public_url:
             return data
         if isinstance(data, list):
             return [self._add_note_url(item) for item in data]
         if isinstance(data, dict):
-            note_id = (
-                data.get("metadata", {}).get("id", "")
-                or data.get("id", "")
-                or data.get("identifier", "")
-                or data.get("noteId", "")
-            )
+            note_id = data.get("metadata", {}).get("primaryAlias", "") or data.get("primaryAlias", "")
             if note_id:
                 data["note_url"] = f"{self.public_url}/n/{note_id}"
         return data
@@ -167,11 +158,7 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
-        result = self._add_note_url(result)
-        note_id = (result if isinstance(result, dict) else {}).get("metadata", {}).get("id", "")
-        if note_id:
-            await self._touch_note_history(note_id, api_key)
-        return result
+        return self._add_note_url(result)
 
     async def get_note_by_id(
         self,
@@ -203,7 +190,6 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
-        await self._touch_note_history(note_id, api_key)
         return self._add_note_url(result)
 
     async def delete_note_by_id(
@@ -212,7 +198,7 @@ class HedgeDocClient:
         payload: dict[str, Any],
         api_key: Optional[str] = None,
     ) -> Any:
-        await self._touch_note_history(note_id, api_key)
+
         return await self.delete(
             f"/api/v2/notes/{note_id}", api_key,
             json={"keepMedia": payload.get("keepMedia", True)},
@@ -256,29 +242,6 @@ class HedgeDocClient:
             result["note_url"] = f"{self.public_url}/n/{note_id}"
         return result
 
-    async def update_note_permissions(
-        self,
-        note_id: str,
-        payload: dict[str, Any],
-        api_key: Optional[str] = None,
-        include_all_fields: bool = False,
-    ) -> Any:
-        body = {
-            "sharedToUsers": payload.get("sharedToUsers", []),
-            "sharedToGroups": payload.get("sharedToGroups", []),
-        }
-        data = await self.put(
-            f"/api/v2/notes/{note_id}/metadata/permissions", api_key,
-            json=body,
-        )
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["note_permissions"])
-        result = _denormalize_response(data)
-        if self.public_url and isinstance(result, dict):
-            result["note_url"] = f"{self.public_url}/n/{note_id}"
-        await self._touch_note_history(note_id, api_key)
-        return result
-
     async def set_note_user_permission(
         self,
         note_id: str,
@@ -297,7 +260,7 @@ class HedgeDocClient:
         result = _denormalize_response(data)
         if self.public_url and isinstance(result, dict):
             result["note_url"] = f"{self.public_url}/n/{note_id}"
-        await self._touch_note_history(note_id, api_key)
+
         return result
 
     async def remove_note_user_permission(
@@ -313,7 +276,7 @@ class HedgeDocClient:
         result = _denormalize_response(data)
         if self.public_url and isinstance(result, dict):
             result["note_url"] = f"{self.public_url}/n/{note_id}"
-        await self._touch_note_history(note_id, api_key)
+
         return result
 
     async def set_note_group_permission(
@@ -334,7 +297,7 @@ class HedgeDocClient:
         result = _denormalize_response(data)
         if self.public_url and isinstance(result, dict):
             result["note_url"] = f"{self.public_url}/n/{note_id}"
-        await self._touch_note_history(note_id, api_key)
+
         return result
 
     async def remove_note_group_permission(
@@ -350,7 +313,7 @@ class HedgeDocClient:
         result = _denormalize_response(data)
         if self.public_url and isinstance(result, dict):
             result["note_url"] = f"{self.public_url}/n/{note_id}"
-        await self._touch_note_history(note_id, api_key)
+
         return result
 
     async def change_note_owner(
@@ -368,7 +331,7 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
-        await self._touch_note_history(note_id, api_key)
+
         return self._add_note_url(result)
 
     async def list_note_revisions(
@@ -385,12 +348,12 @@ class HedgeDocClient:
     async def get_note_revision_by_id(
         self,
         note_id: str,
-        revision_id: int,
+        revision_uuid: str,
         api_key: Optional[str] = None,
         include_all_fields: bool = False,
     ) -> Any:
         data = await self.get(
-            f"/api/v2/notes/{note_id}/revisions/{revision_id}", api_key,
+            f"/api/v2/notes/{note_id}/revisions/{revision_uuid}", api_key,
         )
         if data is None:
             raise Exception("Resource not found")
@@ -401,12 +364,12 @@ class HedgeDocClient:
     async def revert_to_revision(
         self,
         note_id: str,
-        revision_id: int,
+        revision_uuid: str,
         api_key: Optional[str] = None,
         include_all_fields: bool = False,
     ) -> Any:
         revision = await self.get(
-            f"/api/v2/notes/{note_id}/revisions/{revision_id}", api_key,
+            f"/api/v2/notes/{note_id}/revisions/{revision_uuid}", api_key,
         )
         if revision is None or not isinstance(revision, dict):
             raise Exception("Revision not found")
@@ -421,7 +384,7 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
-        await self._touch_note_history(note_id, api_key)
+
         return self._add_note_url(result)
 
     async def list_note_media(
@@ -449,55 +412,6 @@ class HedgeDocClient:
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["profile"])
         return _denormalize_response(data)
-
-    async def list_all_history(
-        self,
-        api_key: Optional[str] = None,
-        include_all_fields: bool = False,
-    ) -> Any:
-        data = await self.get("/api/v2/me/history", api_key)
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["history"])
-        result = _denormalize_response(data)
-        return self._add_note_url(result)
-
-    async def get_history_entry(
-        self,
-        note_id: str,
-        api_key: Optional[str] = None,
-        include_all_fields: bool = False,
-    ) -> Any:
-        data = await self.get(f"/api/v2/me/history/{note_id}", api_key)
-        if data is None:
-            raise Exception("Resource not found")
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["history"])
-        result = _denormalize_response(data)
-        return self._add_note_url(result)
-
-    async def update_history_entry(
-        self,
-        note_id: str,
-        payload: dict[str, Any],
-        api_key: Optional[str] = None,
-        include_all_fields: bool = False,
-    ) -> Any:
-        data = await self.put(
-            f"/api/v2/me/history/{note_id}", api_key,
-            json=payload,
-        )
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["history"])
-        result = _denormalize_response(data)
-        await self._touch_note_history(note_id, api_key)
-        return self._add_note_url(result)
-
-    async def delete_history_entry(
-        self,
-        note_id: str,
-        api_key: Optional[str] = None,
-    ) -> Any:
-        return await self.delete(f"/api/v2/me/history/{note_id}", api_key)
 
     async def list_all_my_notes(
         self,
@@ -556,14 +470,15 @@ class HedgeDocClient:
         api_key: Optional[str] = None,
         include_all_fields: bool = False,
     ) -> Any:
-        data = await self.post("/api/v2/alias", api_key, json=payload)
+        body = {
+            "noteAlias": payload.get("noteIdOrAlias", payload.get("noteAlias", "")),
+            "newAlias": payload.get("newAlias", ""),
+        }
+        data = await self.post("/api/v2/alias", api_key, json=body)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["alias"])
         result = _denormalize_response(data)
         result = self._add_note_url(result)
-        note_id = (result if isinstance(result, dict) else {}).get("noteId", "") or payload.get("noteIdOrAlias", "")
-        if note_id:
-            await self._touch_note_history(note_id, api_key)
         return result
 
     async def make_alias_primary(
@@ -581,9 +496,6 @@ class HedgeDocClient:
             data = _filter_fields(data, COMMON_FIELDS["alias"])
         result = _denormalize_response(data)
         result = self._add_note_url(result)
-        note_id = (result if isinstance(result, dict) else {}).get("noteId", "")
-        if note_id:
-            await self._touch_note_history(note_id, api_key)
         return result
 
     async def remove_alias(
@@ -591,15 +503,6 @@ class HedgeDocClient:
         alias: str,
         api_key: Optional[str] = None,
     ) -> Any:
-        await self._touch_note_history(alias, api_key)
         return await self.delete(f"/api/v2/alias/{alias}", api_key)
 
-    # =========================================================================
-    # System Domain
-    # =========================================================================
 
-    async def check_server_status(
-        self,
-        api_key: Optional[str] = None,
-    ) -> Any:
-        return await self.get("/api/v2/monitoring", api_key)

@@ -64,22 +64,6 @@ class DeleteNoteParam(BaseModel):
     keepMedia: bool = True
 
 
-class SharedToUserItem(BaseModel):
-    username: str
-    canEdit: bool
-
-
-class SharedToGroupItem(BaseModel):
-    groupName: str
-    canEdit: bool
-
-
-class NotePermissionsUpdateParam(BaseModel):
-    noteIdOrAlias: str
-    sharedToUsers: list[SharedToUserItem] = []
-    sharedToGroups: list[SharedToGroupItem] = []
-
-
 class SetUserPermissionParam(BaseModel):
     noteIdOrAlias: str
     userName: str
@@ -107,11 +91,6 @@ class ChangeOwnerParam(BaseModel):
     newOwner: str
 
 
-class UpdateHistoryEntryParam(BaseModel):
-    noteIdOrAlias: str
-    pinStatus: bool
-
-
 class AddAliasParam(BaseModel):
     noteIdOrAlias: str
     newAlias: str
@@ -128,7 +107,7 @@ class RemoveAliasParam(BaseModel):
 
 class RevertToRevisionParam(BaseModel):
     noteIdOrAlias: str
-    revisionId: int
+    revisionUuid: str
 
 # =============================================================================
 # Notes Tools
@@ -267,35 +246,6 @@ async def get_note_permissions(
 
 
 @mcp.tool(tags={"write", "primary", "hedgedoc"})
-async def update_note_permissions(
-    noteIdOrAlias: str,
-    sharedToUsers: list[SharedToUserItem] = [],
-    sharedToGroups: list[SharedToGroupItem] = [],
-    ctx: Context = None,
-) -> dict[str, Any]:
-    """Update a note's permission settings.
-
-    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
-
-    Args:
-        noteIdOrAlias: The unique ID or alias of the note.
-            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
-        sharedToUsers: List of user permissions. Each item: {"username": str, "canEdit": true or false}.
-            (e.g. [{"username": "alice", "canEdit": true}])
-        sharedToGroups: List of group permissions. Each item: {"groupName": str, "canEdit": true or false}.
-            (e.g. [{"groupName": "_EVERYONE", "canEdit": false}])
-    """
-    p = {
-        "sharedToUsers": [u.model_dump() for u in sharedToUsers],
-        "sharedToGroups": [g.model_dump() for g in sharedToGroups],
-    }
-    return await get_client().update_note_permissions(
-        noteIdOrAlias, p, get_user_token(),
-        include_all_fields=ALLOW_ALL_AGGREGATE
-    )
-
-
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
 async def set_note_user_permission(
     noteIdOrAlias: str,
     userName: str,
@@ -411,7 +361,7 @@ async def change_note_owner(
 @mcp.tool(tags={"write", "advanced", "hedgedoc"})
 async def revert_to_revision(
     noteIdOrAlias: str,
-    revisionId: int,
+    revisionUuid: str,
     ctx: Context = None,
 ) -> dict[str, Any]:
     """Revert a note to a previous revision.
@@ -422,12 +372,12 @@ async def revert_to_revision(
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
             (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
-        revisionId: The numeric ID of the revision to revert to.
-            (e.g. 1)
+        revisionUuid: The UUID of the revision to revert to.
+            (e.g. "019fa284-0c74-76f5-8306-7262ca465235")
     """
-    params = RevertToRevisionParam(noteIdOrAlias=noteIdOrAlias, revisionId=revisionId)
+    params = RevertToRevisionParam(noteIdOrAlias=noteIdOrAlias, revisionUuid=revisionUuid)
     return await get_client().revert_to_revision(
-        noteIdOrAlias, revisionId, get_user_token(),
+        noteIdOrAlias, revisionUuid, get_user_token(),
         include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
@@ -454,21 +404,21 @@ async def list_note_revisions(
 @mcp.tool(tags={"read", "advanced", "hedgedoc"})
 async def get_note_revision_by_id(
     noteIdOrAlias: str,
-    revisionId: int,
+    revisionUuid: str,
     include_all_fields: bool = False,
     ctx: Context = None,
 ) -> dict[str, Any]:
-    """Get a specific revision of a note by revision ID.
+    """Get a specific revision of a note by revision UUID.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
             (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
-        revisionId: The numeric ID of the revision to retrieve.
-            (e.g. 1)
+        revisionUuid: The UUID of the revision to retrieve.
+            (e.g. "019fa284-0c74-76f5-8306-7262ca465235")
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_note_revision_by_id(
-        noteIdOrAlias, revisionId, get_user_token(),
+        noteIdOrAlias, revisionUuid, get_user_token(),
         include_all_fields=include_all_fields
     )
 
@@ -509,74 +459,6 @@ async def get_my_profile(
     return await get_client().get_my_profile(
         get_user_token(), include_all_fields=include_all_fields
     )
-
-
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
-async def list_all_history(
-    include_all_fields: bool = False,
-    ctx: Context = None,
-) -> dict[str, Any]:
-    """List the current user's note history.
-
-    Args:
-        include_all_fields: Default False (common fields only). Set True for all fields.
-    """
-    data = await get_client().list_all_history(
-        get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
-    )
-    return {"items": json_to_toon(data)}
-
-
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
-async def get_history_entry(
-    noteIdOrAlias: str,
-    include_all_fields: bool = False,
-    ctx: Context = None,
-) -> dict[str, Any]:
-    """Get a single history entry by note ID or alias.
-
-    Args:
-        noteIdOrAlias: The unique ID or alias of the note.
-        include_all_fields: Default False (common fields only). Set True for all fields.
-    """
-    return await get_client().get_history_entry(
-        noteIdOrAlias, get_user_token(), include_all_fields=include_all_fields
-    )
-
-
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
-async def update_history_entry(
-    noteIdOrAlias: str,
-    pinStatus: bool,
-    ctx: Context = None,
-) -> dict[str, Any]:
-    """Update a history entry's pin status.
-
-    Args:
-        noteIdOrAlias: The unique ID or alias of the note.
-            (e.g. "qhp871j4gt3zpn7syphe4q6t7m")
-        pinStatus: Whether the note is pinned in history: true or false.
-    """
-    params = UpdateHistoryEntryParam(noteIdOrAlias=noteIdOrAlias, pinStatus=pinStatus)
-    return await get_client().update_history_entry(
-        noteIdOrAlias, params.model_dump(exclude_unset=True), get_user_token(),
-        include_all_fields=ALLOW_ALL_AGGREGATE
-    )
-
-
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
-async def delete_history_entry(
-    noteIdOrAlias: str,
-    ctx: Context = None,
-) -> dict[str, Any]:
-    """Delete a history entry by note ID or alias.
-
-    Args:
-        noteIdOrAlias: The unique ID or alias of the note to remove from history.
-    """
-    await get_client().delete_history_entry(noteIdOrAlias, get_user_token())
-    return {"deleted": True, "id": noteIdOrAlias}
 
 
 @mcp.tool(tags={"read", "basic", "hedgedoc"})
@@ -709,16 +591,6 @@ async def remove_alias(
     params = RemoveAliasParam(alias=alias)
     await get_client().remove_alias(alias, get_user_token())
     return {"deleted": True, "id": alias}
-
-# =============================================================================
-# System Tools
-# =============================================================================
-
-
-@mcp.tool(tags={"read", "basic", "hedgedoc"})
-async def check_server_status(ctx: Context = None) -> dict[str, Any]:
-    """Check the HedgeDoc server status and statistics."""
-    return await get_client().check_server_status(get_user_token())
 
 # =============================================================================
 # Entry Point
