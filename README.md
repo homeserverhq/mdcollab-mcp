@@ -81,7 +81,7 @@ The MCP server serves at `http://hedgedoc-mcp:80/mcp` (Streamable HTTP).
 
 The server implements 24 MCP tools organized into the following categories:
 
-### 📄 Notes Core (13 tools)
+### 📄 Notes Core (6 tools)
 
 - `create_note` — Create a new note from markdown content
 - `get_note_by_id` — Get a single note by ID or alias
@@ -89,13 +89,16 @@ The server implements 24 MCP tools organized into the following categories:
 - `delete_note_by_id` — Delete a note by ID or alias
 - `get_note_content` — Get raw markdown content of a note
 - `get_note_metadata` — Get a note's metadata (title, tags, etc.)
+
+### 📎 Notes Advanced (7 tools)
+
 - `list_note_media` — List all media files attached to a note
 - `list_note_revisions` — List all revisions of a note
 - `get_note_revision_by_id` — Get a specific revision by UUID
+- `revert_to_revision` — Revert a note to a previous revision
 - `add_alias` — Add an alias to a note
 - `make_alias_primary` — Set an alias as primary or non-primary
 - `remove_alias` — Remove an alias from a note
-- `revert_to_revision` — Revert a note to a previous revision
 
 ### 🔐 Notes Permissions (6 tools)
 
@@ -106,13 +109,10 @@ The server implements 24 MCP tools organized into the following categories:
 - `remove_note_group_permission` — Remove a group's permission from a note
 - `change_note_owner` — Change the owner of a note
 
-### 👤 Me / Profile (3 tools)
+### 👤 Profile & Media (5 tools)
 
 - `get_my_profile` — Get the current user's profile information
 - `list_all_my_notes` — List all notes owned by the current user
 - `list_all_my_media` — List all media files owned by the current user
-
-### 📁 System & Media (2 tools)
-
 - `get_media_by_id` — Get a single media file by UUID
 - `delete_media_by_id` — Delete a media file by UUID
