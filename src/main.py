@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 from contextvars import ContextVar
@@ -65,10 +64,20 @@ class DeleteNoteParam(BaseModel):
     keepMedia: bool = True
 
 
+class SharedToUserItem(BaseModel):
+    username: str
+    canEdit: bool
+
+
+class SharedToGroupItem(BaseModel):
+    groupName: str
+    canEdit: bool
+
+
 class NotePermissionsUpdateParam(BaseModel):
     noteIdOrAlias: str
-    sharedToUsers: str = "[]"
-    sharedToGroups: str = "[]"
+    sharedToUsers: list[SharedToUserItem] = []
+    sharedToGroups: list[SharedToGroupItem] = []
 
 
 class SetUserPermissionParam(BaseModel):
@@ -246,25 +255,21 @@ async def get_note_permissions(
 @mcp.tool(tags={"write", "primary", "hedgedoc"})
 async def update_note_permissions(
     noteIdOrAlias: str,
-    sharedToUsers: str = "[]",
-    sharedToGroups: str = "[]",
+    sharedToUsers: list[SharedToUserItem] = [],
+    sharedToGroups: list[SharedToGroupItem] = [],
     ctx: Context = None,
 ) -> dict[str, Any]:
     """Update a note's permission settings.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
-        sharedToUsers: JSON string array of user permissions, e.g. [{"username": "user1", "canEdit": true}].
-        sharedToGroups: JSON string array of group permissions, e.g. [{"groupName": "_LOGGED_IN", "canEdit": true}].
+        sharedToUsers: List of user permissions, each with "username" and "canEdit".
+        sharedToGroups: List of group permissions, each with "groupName" and "canEdit".
     """
-    params = NotePermissionsUpdateParam(
-        noteIdOrAlias=noteIdOrAlias,
-        sharedToUsers=sharedToUsers,
-        sharedToGroups=sharedToGroups,
-    )
-    p = params.model_dump(exclude_unset=True)
-    p["sharedToUsers"] = json.loads(p["sharedToUsers"]) if isinstance(p.get("sharedToUsers"), str) else p.get("sharedToUsers", [])
-    p["sharedToGroups"] = json.loads(p["sharedToGroups"]) if isinstance(p.get("sharedToGroups"), str) else p.get("sharedToGroups", [])
+    p = {
+        "sharedToUsers": [u.model_dump() for u in sharedToUsers],
+        "sharedToGroups": [g.model_dump() for g in sharedToGroups],
+    }
     return await get_client().update_note_permissions(
         noteIdOrAlias, p, get_user_token(),
         include_all_fields=ALLOW_ALL_AGGREGATE

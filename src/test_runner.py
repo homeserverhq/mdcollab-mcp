@@ -187,55 +187,36 @@ def get_list_items(data: Any) -> list[dict[str, Any]]:
     return []
 
 
-def _is_test_artifact(name: str) -> bool:
-    if not name or not isinstance(name, str):
-        return False
-    name = name.strip()
-    if not name.startswith("t"):
-        return False
-    dash_pos = name.find("-", 1)
-    if dash_pos < 2 or dash_pos > 9:
-        return False
-    prefix = name[1:dash_pos]
-    return bool(prefix) and all(c in "0123456789abcdef" for c in prefix)
-
-
-LEAK_SCAN_CONFIG = [
-    ("note", "list_all_my_notes", {}, "id", "title", "delete_note_by_id", {}),
-]
-
-
 async def _run_leak_detection(session: MCPSession) -> None:
     total_leaks = 0
-    for entity_type, list_tool, list_params, id_key, name_key, delete_tool, delete_extra in LEAK_SCAN_CONFIG:
-        try:
-            result = await session.call_tool(list_tool, list_params or None)
-        except Exception:
+    known_ids = set(created.values())
+    if not known_ids:
+        results.append({
+            "label": "LEAK no_leaks", "tool": "leak_detection",
+            "status": "PASSED", "data": {"leaks": 0}
+        })
+        log("  PASS LEAK: no test artifacts found")
+        return
+    result = await session.call_tool("list_all_my_notes", {})
+    data = extract_content(result)
+    items = get_list_items(data)
+    for item in items:
+        if not isinstance(item, dict):
             continue
-        err = is_error(result)
-        if err:
+        item_id = item.get("id")
+        if item_id is None:
             continue
-        data = extract_content(result)
-        items = get_list_items(data)
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            name_val = str(item.get(name_key, "") or "")
-            if not _is_test_artifact(name_val):
-                continue
-            item_id = item.get(id_key)
-            if item_id is None:
-                continue
-            total_leaks += 1
-            label = f"LEAK {entity_type} id={item_id} name={name_val[:40]}"
-            results.append({
-                "label": label, "tool": delete_tool, "status": "FAILED",
-                "reason": f"Leaked {entity_type} found after test run — delete was not called or failed"
-            })
-            log(f"  FAIL {label}")
-            del_params = {id_key: item_id, **delete_extra}
-            await session.call_tool(delete_tool, del_params)
-            log(f"       => cleaned up {entity_type} {item_id}")
+        if item_id not in known_ids:
+            continue
+        total_leaks += 1
+        label = f"LEAK note id={item_id}"
+        results.append({
+            "label": label, "tool": "delete_note_by_id", "status": "FAILED",
+            "reason": "Leaked note found after test run"
+        })
+        log(f"  FAIL {label}")
+        await session.call_tool("delete_note_by_id", {"noteIdOrAlias": item_id})
+        log(f"       => cleaned up note {item_id}")
 
     if total_leaks == 0:
         results.append({
@@ -439,6 +420,8 @@ async def main():
             store_key="fixture_note"
         )
         fixture_id = pick_metadata_id("fixture_note") or pick_id("fixture_note")
+        if fixture_id:
+            created["fixture_note"] = fixture_id
 
         if fixture_id:
             await run_test(session, "D1 get_note_content", "get_note_content",
@@ -485,12 +468,19 @@ async def main():
                     await run_test(session, "D15 get_note_revision_by_id", "get_note_revision_by_id",
                                    {"noteIdOrAlias": fixture_id, "revisionId": first_rev["id"]})
 
-            # History tests — use an entry from the user's existing history if available
+            # History tests — only operate on entries for test-created notes
             await run_test(session, "D16 get_my_profile", "get_my_profile")
+            # Trigger history entry creation (only GET /api/v2/notes/{id} calls updateHistoryEntryTimestamp)
+            await session.call_tool("get_note_by_id", {"noteIdOrAlias": fixture_id})
             hist_result = await session.call_tool("list_all_history", {})
             hist_data = extract_content(hist_result)
             hist_items = get_list_items(hist_data)
-            hist_id = hist_items[0].get("identifier") if hist_items and isinstance(hist_items[0], dict) else ""
+            known_ids = set(created.values())
+            hist_id = ""
+            for item in hist_items:
+                if isinstance(item, dict) and item.get("identifier", "") in known_ids:
+                    hist_id = item["identifier"]
+                    break
             if hist_id:
                 await run_test(session, "D17 get_history_entry", "get_history_entry",
                                {"noteIdOrAlias": hist_id})
