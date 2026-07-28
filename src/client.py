@@ -211,9 +211,11 @@ class HedgeDocClient:
         self,
         note_id: str,
         api_key: Optional[str] = None,
-    ) -> Any:
+    ) -> str:
         data = await self.get(f"/api/v2/notes/{note_id}/content", api_key)
-        return data
+        if isinstance(data, dict):
+            return data.get("text", "")
+        return str(data)
 
     async def get_note_metadata(
         self,

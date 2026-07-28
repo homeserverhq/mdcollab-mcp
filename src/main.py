@@ -208,14 +208,13 @@ async def delete_note_by_id(
 async def get_note_content(
     noteIdOrAlias: str,
     ctx: Context = None,
-) -> dict[str, Any]:
+) -> str:
     """Get the raw markdown content of a note.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
     """
-    data = await get_client().get_note_content(noteIdOrAlias, get_user_token())
-    return data
+    return await get_client().get_note_content(noteIdOrAlias, get_user_token())
 
 
 @mcp.tool(tags={"read", "primary", "hedgedoc"})
