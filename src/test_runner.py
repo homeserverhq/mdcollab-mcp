@@ -466,6 +466,44 @@ async def main():
 
             await run_test(session, "D17 get_my_profile", "get_my_profile")
 
+            # Revert to revision test
+            if fixture_id:
+                original_content = make_name("Revert test original")
+                mod_content = "# Modified\n\n" + make_name("revert mod")
+
+                await run_test_with_store(
+                    session, "D18 create_revert_note", "create_note",
+                    {"content": original_content},
+                    store_key="revert_note"
+                )
+                revert_id = pick_metadata_id("revert_note") or pick_id("revert_note")
+
+                if revert_id:
+                    await run_test(session, "D18b update_for_revert", "update_note",
+                                   {"noteIdOrAlias": revert_id, "content": mod_content})
+
+                    rev_result = await session.call_tool("list_note_revisions", {"noteIdOrAlias": revert_id})
+                    rev_data = extract_content(rev_result)
+                    rev_items = get_list_items(rev_data)
+                    if rev_items and isinstance(rev_items, list) and len(rev_items) >= 2:
+                        orig_rev = rev_items[-1]
+                        if isinstance(orig_rev, dict) and orig_rev.get("uuid"):
+                            await run_test(session, "D18c revert_to_original", "revert_to_revision",
+                                           {"noteIdOrAlias": revert_id, "revisionUuid": orig_rev["uuid"]})
+
+                            content_result = await session.call_tool("get_note_content", {"noteIdOrAlias": revert_id})
+                            content_data = extract_content(content_result)
+                            actual = str(content_data) if not isinstance(content_data, str) else content_data
+                            if actual == original_content:
+                                results.append({"label": "D18d verify_revert_content", "tool": "get_note_content", "status": "PASSED"})
+                                log("  PASS D18d verify_revert_content")
+                            else:
+                                results.append({"label": "D18d verify_revert_content", "tool": "get_note_content", "status": "FAILED", "reason": f"content mismatch"})
+                                log(f"  FAIL D18d verify_revert_content: expected '{original_content}', got '{actual}'")
+
+                    await run_test(session, "D18z cleanup_revert_note", "delete_note_by_id",
+                                   {"noteIdOrAlias": revert_id})
+
             # Media tests - list_all_my_media (passes even with empty list),
             # delete_media_by_id requires a valid UUID from the media list
             media_result = await session.call_tool("list_all_my_media", {})

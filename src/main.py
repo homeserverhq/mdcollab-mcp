@@ -367,7 +367,6 @@ async def revert_to_revision(
     """Revert a note to a previous revision.
 
     Fetches the specified revision's content and overwrites the note with it.
-    Note: This is a workaround for HedgeDoc's missing WebSocket revert handler.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
