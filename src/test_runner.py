@@ -504,6 +504,29 @@ async def main():
                     await run_test(session, "D18z cleanup_revert_note", "delete_note_by_id",
                                    {"noteIdOrAlias": revert_id})
 
+            # Media URL resolution test
+            if fixture_id:
+                url_test_content = "# Media URL Test\n\n![](media/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee)\n\nAlready absolute: ![](https://example.com/image.png)"
+                await run_test_with_store(
+                    session, "D19 create_media_url_test_note", "create_note",
+                    {"content": url_test_content},
+                    store_key="media_url_note"
+                )
+                media_url_id = pick_metadata_id("media_url_note") or pick_id("media_url_note")
+                if media_url_id:
+                    content_result = await session.call_tool("get_note_content", {"noteIdOrAlias": media_url_id})
+                    content_data = extract_content(content_result)
+                    actual_content = str(content_data) if not isinstance(content_data, str) else content_data
+                    if "](media/" not in actual_content and "media/" in actual_content:
+                        results.append({"label": "D19b verify_media_url_resolution", "tool": "get_note_content", "status": "PASSED"})
+                        log("  PASS D19b verify_media_url_resolution")
+                    else:
+                        reason = "relative media URL still present" if "](media/" in actual_content else "no media/ in content"
+                        results.append({"label": "D19b verify_media_url_resolution", "tool": "get_note_content", "status": "FAILED", "reason": reason})
+                        log(f"  FAIL D19b verify_media_url_resolution: {reason}")
+                    await run_test(session, "D19z cleanup_media_url_note", "delete_note_by_id",
+                                   {"noteIdOrAlias": media_url_id})
+
             # Media tests - list_all_my_media (passes even with empty list),
             # delete_media_by_id requires a valid UUID from the media list
             media_result = await session.call_tool("list_all_my_media", {})

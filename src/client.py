@@ -137,6 +137,23 @@ class HedgeDocClient:
                 data["media_url"] = f"{self.public_url}/media/{uuid}"
         return data
 
+    def _resolve_media_urls(self, content: str) -> str:
+        if not self.public_url:
+            return content
+        return re.sub(
+            r'(?<!/)(?<![a-zA-Z0-9+.-])media/([a-f0-9-]{8,})',
+            f'{self.public_url}/media/\\1',
+            content
+        )
+
+    def _resolve_content_field(self, data: Any) -> Any:
+        if not self.public_url:
+            return data
+        if isinstance(data, dict) and "content" in data and isinstance(data["content"], str):
+            data = dict(data)
+            data["content"] = self._resolve_media_urls(data["content"])
+        return data
+
     # =========================================================================
     # Notes Domain
     # =========================================================================
@@ -155,6 +172,7 @@ class HedgeDocClient:
             content=content,
             extra_headers={"Content-Type": "text/markdown"},
         )
+        data = self._resolve_content_field(data)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
@@ -169,6 +187,7 @@ class HedgeDocClient:
         data = await self.get(f"/api/v2/notes/{note_id}", api_key)
         if data is None:
             raise Exception("Resource not found")
+        data = self._resolve_content_field(data)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
@@ -187,6 +206,7 @@ class HedgeDocClient:
             content=content,
             extra_headers={"Content-Type": "text/markdown"},
         )
+        data = self._resolve_content_field(data)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
@@ -211,8 +231,10 @@ class HedgeDocClient:
     ) -> str:
         data = await self.get(f"/api/v2/notes/{note_id}/content", api_key)
         if isinstance(data, dict):
-            return data.get("text", "")
-        return str(data)
+            result = data.get("text", "")
+        else:
+            result = str(data)
+        return self._resolve_media_urls(result)
 
     async def get_note_metadata(
         self,
@@ -357,6 +379,7 @@ class HedgeDocClient:
         )
         if data is None:
             raise Exception("Resource not found")
+        data = self._resolve_content_field(data)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["revision"])
         return _denormalize_response(data)
@@ -372,6 +395,7 @@ class HedgeDocClient:
             f"/api/v2/notes/{note_id}/revisions/{revision_uuid}/revert",
             api_key,
         )
+        data = self._resolve_content_field(data)
         if not include_all_fields:
             data = _filter_fields(data, COMMON_FIELDS["note"])
         result = _denormalize_response(data)
