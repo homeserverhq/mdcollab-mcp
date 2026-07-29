@@ -466,6 +466,12 @@ async def main():
 
             await run_test(session, "D17 get_my_profile", "get_my_profile")
 
+            # Scope tests for list_all_my_notes
+            await run_test(session, "D30 list_notes_scope_my", "list_all_my_notes")
+            await run_test(session, "D31 list_notes_scope_shared", "list_all_shared_notes")
+            await run_test(session, "D32 list_notes_scope_public", "list_all_public_notes")
+            await run_test(session, "D33 list_notes_scope_pinned", "list_all_pinned_notes")
+
             # Revert to revision test
             if fixture_id:
                 original_content = make_name("Revert test original")

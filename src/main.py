@@ -254,7 +254,7 @@ async def set_note_user_permission(
 ) -> dict[str, Any]:
     """Set a user's permission on a note.
 
-    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
+    After granting permission, mention the note URL to the user so they can easily access the note.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
@@ -299,7 +299,7 @@ async def set_note_group_permission(
 ) -> dict[str, Any]:
     """Set a group's permission on a note.
 
-    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
+    After granting permission, mention the note URL to the user so they can easily access the note.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
@@ -343,7 +343,7 @@ async def change_note_owner(
 ) -> dict[str, Any]:
     """Change the owner of a note.
 
-    Granting access does NOT add the note to the target user's history or Web UI. The note URL must be shared separately with the user. Ensure to inform the user of this upon completion.
+    After granting permission, mention the note URL to the user so they can easily access the note.
 
     Args:
         noteIdOrAlias: The unique ID or alias of the note.
@@ -471,6 +471,57 @@ async def list_all_my_notes(
         include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().list_all_my_notes(
+        get_user_token(),
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+    )
+    return {"items": json_to_toon(data)}
+
+
+@mcp.tool(tags={"read", "basic", "hedgedoc"})
+async def list_all_shared_notes(
+    include_all_fields: bool = False,
+    ctx: Context = None,
+) -> dict[str, Any]:
+    """List all notes shared with the current user.
+
+    Args:
+        include_all_fields: Default False (common fields only). Set True for all fields.
+    """
+    data = await get_client().list_all_shared_notes(
+        get_user_token(),
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+    )
+    return {"items": json_to_toon(data)}
+
+
+@mcp.tool(tags={"read", "basic", "hedgedoc"})
+async def list_all_public_notes(
+    include_all_fields: bool = False,
+    ctx: Context = None,
+) -> dict[str, Any]:
+    """List all public notes visible to the current user.
+
+    Args:
+        include_all_fields: Default False (common fields only). Set True for all fields.
+    """
+    data = await get_client().list_all_public_notes(
+        get_user_token(),
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+    )
+    return {"items": json_to_toon(data)}
+
+
+@mcp.tool(tags={"read", "basic", "hedgedoc"})
+async def list_all_pinned_notes(
+    include_all_fields: bool = False,
+    ctx: Context = None,
+) -> dict[str, Any]:
+    """List all notes pinned by the current user.
+
+    Args:
+        include_all_fields: Default False (common fields only). Set True for all fields.
+    """
+    data = await get_client().list_all_pinned_notes(
         get_user_token(),
         include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
     )

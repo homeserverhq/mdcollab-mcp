@@ -8,7 +8,7 @@ import httpx
 
 COMMON_FIELDS: dict[str, set[str]] = {
     "note": {"metadata"},
-    "note_metadata": {"primaryAlias", "title", "description", "tags", "version", "updatedAt", "createdAt", "editedBy", "lastUpdatedBy", "permissions"},
+    "note_metadata": {"primaryAlias", "title", "tags", "version", "updatedAt", "lastUpdatedBy", "permissions"},
     "note_permissions": {"owner", "sharedToUsers", "sharedToGroups"},
     "media": {"uuid", "fileName", "linkedNoteCount", "username"},
     "revision": {"uuid", "length", "authorUsernames", "title", "tags", "description"},
@@ -427,16 +427,45 @@ class HedgeDocClient:
             data = _filter_fields(data, COMMON_FIELDS["profile"])
         return _denormalize_response(data)
 
+    async def list_notes(
+        self,
+        scope: str = "my",
+        api_key: Optional[str] = None,
+        include_all_fields: bool = False,
+    ) -> Any:
+        data = await self.get(f"/api/v2/me/notes?scope={scope}", api_key)
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS["note_metadata"])
+        result = _denormalize_response(data)
+        return self._add_note_url(result)
+
     async def list_all_my_notes(
         self,
         api_key: Optional[str] = None,
         include_all_fields: bool = False,
     ) -> Any:
-        data = await self.get("/api/v2/me/notes", api_key)
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["note_metadata"])
-        result = _denormalize_response(data)
-        return self._add_note_url(result)
+        return await self.list_notes("my", api_key, include_all_fields=include_all_fields)
+
+    async def list_all_shared_notes(
+        self,
+        api_key: Optional[str] = None,
+        include_all_fields: bool = False,
+    ) -> Any:
+        return await self.list_notes("shared", api_key, include_all_fields=include_all_fields)
+
+    async def list_all_public_notes(
+        self,
+        api_key: Optional[str] = None,
+        include_all_fields: bool = False,
+    ) -> Any:
+        return await self.list_notes("public", api_key, include_all_fields=include_all_fields)
+
+    async def list_all_pinned_notes(
+        self,
+        api_key: Optional[str] = None,
+        include_all_fields: bool = False,
+    ) -> Any:
+        return await self.list_notes("pinned", api_key, include_all_fields=include_all_fields)
 
     async def list_all_my_media(
         self,
