@@ -2,7 +2,7 @@
 
 This repository contains a Model Context Protocol (MCP) server that acts
 as a secure, multi-tenant proxy between an AI Assistant and the HedgeDoc
-backend API. It exposes **24 MCP tools** covering 4 resource domains
+backend API. It exposes **27 MCP tools** covering 5 resource domains
 with full CRUD and permission management.
 
 ## ✨ Features
@@ -13,14 +13,14 @@ with full CRUD and permission management.
 - **👥 Multi-Tenancy** — Uses Python `contextvars` to maintain thread-safe
   user identity isolation, ensuring all AI-driven actions are scoped to
   the authenticated user's permissions.
-- **📊 Full HedgeDoc Coverage** — 24 tools mapped to HedgeDoc API endpoints
-  across 4 resource domains.
+- **📊 Full HedgeDoc Coverage** — 27 tools mapped to HedgeDoc API endpoints
+  across 5 resource domains.
 - **⚡ TOON Optimization** — Bulk list responses are automatically compressed
   using TOON (Token-Optimized Object Notation) to reduce token consumption
   and maximize context window efficiency.
 - **🚀 Efficient Gets** — GET responses return only commonly used fields by
   default. Full objects are available via an `include_all_fields` flag.
-- **🧪 Comprehensive Testing** — 34 automated tests covering all tool
+- **🧪 Comprehensive Testing** — 38 automated tests covering all tool
   domains, run via the test runner pipeline.
 
 ## 🔧 Environment Variables
@@ -79,7 +79,7 @@ The MCP server serves at `http://hedgedoc-mcp:80/mcp` (Streamable HTTP).
 
 ## 🛠️ API Tool Mapping
 
-The server implements 24 MCP tools organized into the following categories:
+The server implements 27 MCP tools organized into the following categories:
 
 ### 📄 Notes Core (6 tools)
 
@@ -109,10 +109,16 @@ The server implements 24 MCP tools organized into the following categories:
 - `remove_note_group_permission` — Remove a group's permission from a note
 - `change_note_owner` — Change the owner of a note
 
-### 👤 Profile & Media (5 tools)
+### 📋 Notes Listing (4 tools)
+
+- `list_all_my_notes` — List notes owned by the current user
+- `list_all_shared_notes` — List notes shared with the current user
+- `list_all_public_notes` — List public notes visible to the current user
+- `list_all_pinned_notes` — List notes pinned by the current user
+
+### 👤 Profile & Media (4 tools)
 
 - `get_my_profile` — Get the current user's profile information
-- `list_all_my_notes` — List all notes owned by the current user
 - `list_all_my_media` — List all media files owned by the current user
 - `get_media_by_id` — Get a single media file by UUID
 - `delete_media_by_id` — Delete a media file by UUID
