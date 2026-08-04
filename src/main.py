@@ -4,6 +4,7 @@ from contextvars import ContextVar
 from typing import Any, Optional
 
 from fastmcp import FastMCP, Context
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 from toon_mcp import json_to_toon
 
@@ -114,7 +115,9 @@ class RevertToRevisionParam(BaseModel):
 # =============================================================================
 
 
-@mcp.tool(tags={"write", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="Create Note", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 async def create_note(
     content: str,
     alias: str = "",
@@ -135,7 +138,9 @@ async def create_note(
     )
 
 
-@mcp.tool(tags={"read", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="Get Note By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def get_note_by_id(
     noteIdOrAlias: str,
     include_all_fields: bool = False,
@@ -153,7 +158,9 @@ async def get_note_by_id(
     )
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Update Note", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def update_note(
     noteIdOrAlias: str,
     content: str,
@@ -174,7 +181,9 @@ async def update_note(
     )
 
 
-@mcp.tool(tags={"write", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="Delete Note By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 async def delete_note_by_id(
     noteIdOrAlias: str,
     keepMedia: bool = True,
@@ -195,7 +204,9 @@ async def delete_note_by_id(
     return {"deleted": True, "id": noteIdOrAlias}
 
 
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Get Note Content", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def get_note_content(
     noteIdOrAlias: str,
     ctx: Context = None,
@@ -209,7 +220,9 @@ async def get_note_content(
     return await get_client().get_note_content(noteIdOrAlias, get_user_token())
 
 
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Get Note Metadata", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def get_note_metadata(
     noteIdOrAlias: str,
     include_all_fields: bool = False,
@@ -227,7 +240,9 @@ async def get_note_metadata(
     )
 
 
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Get Note Permissions", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def get_note_permissions(
     noteIdOrAlias: str,
     include_all_fields: bool = False,
@@ -245,7 +260,9 @@ async def get_note_permissions(
     )
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Set Note User Permission", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def set_note_user_permission(
     noteIdOrAlias: str,
     userName: str,
@@ -270,7 +287,9 @@ async def set_note_user_permission(
     )
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Remove Note User Permission", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def remove_note_user_permission(
     noteIdOrAlias: str,
     userName: str,
@@ -290,7 +309,9 @@ async def remove_note_user_permission(
     )
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Set Note Group Permission", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def set_note_group_permission(
     noteIdOrAlias: str,
     groupName: str,
@@ -315,7 +336,9 @@ async def set_note_group_permission(
     )
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Remove Note Group Permission", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def remove_note_group_permission(
     noteIdOrAlias: str,
     groupName: str,
@@ -335,7 +358,9 @@ async def remove_note_group_permission(
     )
 
 
-@mcp.tool(tags={"write", "advanced", "hedgedoc"})
+@mcp.tool(
+    tags={"advanced", "hedgedoc"}, annotations=ToolAnnotations(title="Change Note Owner", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def change_note_owner(
     noteIdOrAlias: str,
     newOwner: str,
@@ -358,7 +383,9 @@ async def change_note_owner(
     )
 
 
-@mcp.tool(tags={"write", "advanced", "hedgedoc"})
+@mcp.tool(
+    tags={"advanced", "hedgedoc"}, annotations=ToolAnnotations(title="Revert To Revision", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def revert_to_revision(
     noteIdOrAlias: str,
     revisionUuid: str,
@@ -381,7 +408,9 @@ async def revert_to_revision(
     )
 
 
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="List Note Revisions", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def list_note_revisions(
     noteIdOrAlias: str,
     include_all_fields: bool = False,
@@ -400,7 +429,9 @@ async def list_note_revisions(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "advanced", "hedgedoc"})
+@mcp.tool(
+    tags={"advanced", "hedgedoc"}, annotations=ToolAnnotations(title="Get Note Revision By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def get_note_revision_by_id(
     noteIdOrAlias: str,
     revisionUuid: str,
@@ -422,7 +453,9 @@ async def get_note_revision_by_id(
     )
 
 
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="List Note Media", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def list_note_media(
     noteIdOrAlias: str,
     include_all_fields: bool = False,
@@ -445,7 +478,9 @@ async def list_note_media(
 # =============================================================================
 
 
-@mcp.tool(tags={"read", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="Get My Profile", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def get_my_profile(
     include_all_fields: bool = False,
     ctx: Context = None,
@@ -460,7 +495,9 @@ async def get_my_profile(
     )
 
 
-@mcp.tool(tags={"read", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="List All My Notes", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def list_all_my_notes(
     include_all_fields: bool = False,
     ctx: Context = None,
@@ -477,7 +514,9 @@ async def list_all_my_notes(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="List All Shared Notes", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def list_all_shared_notes(
     include_all_fields: bool = False,
     ctx: Context = None,
@@ -494,7 +533,9 @@ async def list_all_shared_notes(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="List All Public Notes", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def list_all_public_notes(
     include_all_fields: bool = False,
     ctx: Context = None,
@@ -511,7 +552,9 @@ async def list_all_public_notes(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "basic", "hedgedoc"})
+@mcp.tool(
+    tags={"basic", "hedgedoc"}, annotations=ToolAnnotations(title="List All Pinned Notes", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def list_all_pinned_notes(
     include_all_fields: bool = False,
     ctx: Context = None,
@@ -528,7 +571,9 @@ async def list_all_pinned_notes(
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="List All My Media", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def list_all_my_media(
     include_all_fields: bool = False,
     ctx: Context = None,
@@ -549,7 +594,9 @@ async def list_all_my_media(
 # =============================================================================
 
 
-@mcp.tool(tags={"read", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Get Media By Id", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def get_media_by_id(
     uuid: str,
     include_all_fields: bool = False,
@@ -567,7 +614,9 @@ async def get_media_by_id(
     )
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Delete Media By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+)
 async def delete_media_by_id(
     uuid: str,
     ctx: Context = None,
@@ -586,7 +635,9 @@ async def delete_media_by_id(
 # =============================================================================
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Add Alias", readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+)
 async def add_alias(
     noteIdOrAlias: str,
     newAlias: str,
@@ -607,7 +658,9 @@ async def add_alias(
     )
 
 
-@mcp.tool(tags={"write", "advanced", "hedgedoc"})
+@mcp.tool(
+    tags={"advanced", "hedgedoc"}, annotations=ToolAnnotations(title="Make Alias Primary", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def make_alias_primary(
     alias: str,
     primaryAlias: bool,
@@ -627,7 +680,9 @@ async def make_alias_primary(
     )
 
 
-@mcp.tool(tags={"write", "primary", "hedgedoc"})
+@mcp.tool(
+    tags={"primary", "hedgedoc"}, annotations=ToolAnnotations(title="Remove Alias", readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+)
 async def remove_alias(
     alias: str,
     ctx: Context = None,

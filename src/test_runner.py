@@ -1,10 +1,11 @@
 """
 End-to-end test harness for HedgeDoc MCP Server.
 
-Flat unconditional execution — zero conditional branching, zero exception
-handling, zero references to skipping. Every test runs every single time.
+Flat unconditional execution — a single unrolled list of tests. No loops
+over tests, no conditional gating, no skipping. Every test runs every time.
 """
 
+import asyncio
 import json
 import os
 import sys
@@ -14,8 +15,6 @@ from typing import Any, Optional
 
 import httpx
 from toon_mcp import toon_to_json
-
-import asyncio
 
 MCP_SERVER_PORT = os.environ.get("MCP_SERVER_PORT", "")
 API_KEY = os.environ.get("API_KEY", "")
@@ -29,7 +28,6 @@ rid = uuid.uuid4().hex[:8]
 
 results: list[dict[str, Any]] = []
 store: dict[str, Any] = {}
-created: dict[str, str] = {}
 
 
 class MCPSession:
@@ -187,376 +185,145 @@ def get_list_items(data: Any) -> list[dict[str, Any]]:
     return []
 
 
-async def _run_leak_detection(session: MCPSession) -> None:
-    total_leaks = 0
-    known_ids = set(created.values())
-    if not known_ids:
-        results.append({
-            "label": "LEAK no_leaks", "tool": "leak_detection",
-            "status": "PASSED", "data": {"leaks": 0}
-        })
-        log("  PASS LEAK: no test artifacts found")
-        return
-    result = await session.call_tool("list_all_my_notes", {})
+def record_result(label: str, tool: str, ok: bool, detail: Optional[str] = None) -> None:
+    log(f"  {'PASS' if ok else 'FAIL'} {label}{': ' + detail if detail else ''}")
+    results.append({
+        "label": label,
+        "tool": tool,
+        "status": "PASSED" if ok else "FAILED",
+        "reason": detail or None,
+    })
+
+
+async def run_test(session: MCPSession, label: str, tool: str, params: dict[str, Any] = None) -> bool:
+    params = params if params else {}
+    result = await session.call_tool(tool, params)
     data = extract_content(result)
-    items = get_list_items(data)
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        item_id = item.get("primaryAlias") or item.get("id")
-        if item_id is None:
-            continue
-        if item_id not in known_ids:
-            continue
-        total_leaks += 1
-        label = f"LEAK note id={item_id}"
-        results.append({
-            "label": label, "tool": "delete_note_by_id", "status": "FAILED",
-            "reason": "Leaked note found after test run"
-        })
-        log(f"  FAIL {label}")
-        await session.call_tool("delete_note_by_id", {"noteIdOrAlias": item_id})
-        log(f"       => cleaned up note {item_id}")
-
-    if total_leaks == 0:
-        results.append({
-            "label": "LEAK no_leaks", "tool": "leak_detection",
-            "status": "PASSED", "data": {"leaks": 0}
-        })
-        log("  PASS LEAK: no test artifacts found")
+    store[label] = data
+    err = is_error(result)
+    record_result(label, tool, err is None, err)
+    return err is None
 
 
-async def run_test(
-    session: MCPSession,
-    label: str,
-    tool: str,
-    params: dict[str, Any] = None,
-) -> bool:
-    if params is None:
-        params = {}
+async def verify_deleted(session: MCPSession, label: str, tool: str, params: dict[str, Any]) -> bool:
     result = await session.call_tool(tool, params)
     err = is_error(result)
-    if err:
-        results.append({
-            "label": label, "tool": tool, "status": "FAILED",
-            "reason": err
-        })
-        log(f"  FAIL {label}: {err}")
-        return False
-    data = extract_content(result)
-    results.append({
-        "label": label, "tool": tool, "status": "PASSED", "data": data
-    })
-    log(f"  PASS {label}")
-    return True
-
-
-async def run_test_with_store(
-    session: MCPSession,
-    label: str,
-    tool: str,
-    params: dict[str, Any] = None,
-    store_key: str = None,
-) -> bool:
-    ok = await run_test(session, label, tool, params)
-    if ok and store_key:
-        for r in results:
-            if r["label"] == label and r["status"] == "PASSED":
-                store[store_key] = r.get("data")
-                break
+    err_text = err or ""
+    ok = (err is not None) and ("not found" in err_text.lower())
+    record_result(label, tool, ok, "record still exists after delete" if not ok else None)
     return ok
 
 
-def pick_id(key: str) -> Optional[str]:
-    entry = store.get(key, {})
-    if isinstance(entry, dict):
-        return entry.get("id") or entry.get("primaryAlias")
-    return None
-
-
-def pick_metadata_id(key: str) -> Optional[str]:
-    entry = store.get(key, {})
-    if isinstance(entry, dict):
-        meta = entry.get("metadata") or {}
-        return meta.get("primaryAlias") or meta.get("id")
-    return None
+def note_id(store: dict[str, Any], key: str) -> str:
+    entry = store.get(key, {}) or {}
+    meta = entry.get("metadata") or {}
+    return meta.get("primaryAlias") or meta.get("id") or entry.get("primaryAlias") or entry.get("id") or "nonexistent"
 
 
 def make_name(base: str) -> str:
     return f"t{rid}-{base}"
 
 
-def resolve_params(params: Any) -> dict:
-    if callable(params):
-        try:
-            return params(store, rid)
-        except KeyError:
-            return {}
-    return dict(params) if params else {}
-
-
-async def run_verify_delete(
-    session: MCPSession,
-    label: str,
-    get_tool: str,
-    params: dict[str, Any] = None,
-) -> bool:
-    if params is None:
-        params = {}
-    result = await session.call_tool(get_tool, params)
-    err = is_error(result)
-    if err:
-        if "not found" in err.lower():
-            results.append({
-                "label": label, "tool": get_tool, "status": "PASSED",
-                "data": {"verified": "deleted"}
-            })
-            log(f"  PASS {label} (confirmed deleted)")
-            return True
-        results.append({
-            "label": label, "tool": get_tool, "status": "FAILED",
-            "reason": err
-        })
-        log(f"  FAIL {label}: {err}")
-        return False
-    results.append({
-        "label": label, "tool": get_tool, "status": "FAILED",
-        "reason": "Record still exists after delete"
-    })
-    log(f"  FAIL {label}: record still exists")
-    return False
-
-
-RESOURCE_TESTS = [
-    ("Note", "create_note",
-     {"content": make_name("Test note content")},
-     "list_all_my_notes", "get_note_by_id",
-     "update_note", {"content": "# Updated\n\nTest content"},
-     "delete_note_by_id"),
-]
-
-
 async def main():
-    print(f"# Test Report — HedgeDoc MCP Server")
+    print("# Test Report — HedgeDoc MCP Server")
     print(f"\n**Date**: {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}")
     print(f"**Server**: {MCP_URL}")
     print(f"**Run ID**: {rid}")
     print()
 
     async with MCPSession(MCP_URL, MCP_HEADERS) as session:
-        # ------------------------------------------------------------------
-        # Phase 0: Session Init & Tool Discovery
-        # ------------------------------------------------------------------
-        log("\n=== Phase 0: Session Init & Tool Discovery ===")
+        log("\n=== Tool Discovery ===")
         tools_list = await session.list_tools()
         tool_names = [t["name"] for t in tools_list]
         print(f"**Discovered**: {len(tool_names)} tools")
         log(f"Tools: {', '.join(sorted(tool_names))}")
 
-        # ------------------------------------------------------------------
-        # Phase 1: List Tools
-        # ------------------------------------------------------------------
-        log("\n=== Phase 1: List Tools ===")
+        # ---- Phase 1: List tests (flat) ----
         await run_test(session, "B2 list_all_my_notes", "list_all_my_notes")
         await run_test(session, "B2 list_all_my_media", "list_all_my_media")
 
-        # ------------------------------------------------------------------
-        # Phase 2: CRUD Cycle
-        # ------------------------------------------------------------------
-        log("\n=== Phase 2: Resource CRUD Cycle ===")
-        for entry in RESOURCE_TESTS:
-            label, create_tool, create_params, _, get_tool, update_tool, \
-                update_params, delete_tool = entry
-            key = label.lower()
+        # ---- Phase 2: CRUD cycle (unrolled) ----
+        await run_test(session, "C1 create_note", "create_note", {"content": make_name("Test note content")})
+        crud_id = note_id(store, "C1 create_note")
+        await run_test(session, "C2 get_note_by_id", "get_note_by_id", {"noteIdOrAlias": crud_id})
+        await run_test(session, "C3 update_note", "update_note", {"noteIdOrAlias": crud_id, "content": "# Updated\n\nTest content"})
+        await run_test(session, "C4 delete_note_by_id", "delete_note_by_id", {"noteIdOrAlias": crud_id})
+        await verify_deleted(session, "C5 verify_delete_note", "get_note_by_id", {"noteIdOrAlias": crud_id})
 
-            ok = await run_test_with_store(
-                session, f"C1 create_{key}", create_tool, create_params,
-                store_key=f"create_{key}"
-            )
-            cid = pick_metadata_id(f"create_{key}") or pick_id(f"create_{key}")
-            if cid:
-                created[f"create_{key}"] = cid
+        # ---- Phase 3: Domain-specific tests (unrolled) ----
+        await run_test(session, "D0 create_fixture_note", "create_note", {"content": make_name("Fixture note for domain tests")})
+        fixture_id = note_id(store, "D0 create_fixture_note")
 
-            await run_test_with_store(
-                session, f"C2 get_{key}_by_id", get_tool,
-                {"noteIdOrAlias": cid} if cid else {"noteIdOrAlias": "nonexistent"},
-                store_key=f"get_{key}"
-            )
+        await run_test(session, "D1 get_note_content", "get_note_content", {"noteIdOrAlias": fixture_id})
+        await run_test(session, "D2 get_note_metadata", "get_note_metadata", {"noteIdOrAlias": fixture_id})
+        await run_test(session, "D3 get_note_permissions", "get_note_permissions", {"noteIdOrAlias": fixture_id})
 
-            gid = pick_metadata_id(f"get_{key}") or pick_id(f"get_{key}") or cid
+        await run_test(session, "D17 get_my_profile", "get_my_profile")
+        current_username = store.get("D17 get_my_profile", {}).get("username", "")
 
-            upd = dict(update_params)
-            upd["noteIdOrAlias"] = gid if gid else "nonexistent"
-            await run_test(
-                session, f"C3 update_{key}", update_tool, upd
-            )
+        await run_test(session, "D4 set_note_user_permission", "set_note_user_permission", {"noteIdOrAlias": fixture_id, "userName": current_username, "canEdit": True})
+        await run_test(session, "D7 set_note_group_permission", "set_note_group_permission", {"noteIdOrAlias": fixture_id, "groupName": "_EVERYONE", "canEdit": True})
+        await run_test(session, "D8 remove_note_group_permission", "remove_note_group_permission", {"noteIdOrAlias": fixture_id, "groupName": "_EVERYONE"})
 
-            await run_test(
-                session, f"C4 delete_{key}_by_id", delete_tool,
-                {"noteIdOrAlias": gid} if gid else {"noteIdOrAlias": "nonexistent"}
-            )
+        await run_test(session, "D9 list_note_revisions", "list_note_revisions", {"noteIdOrAlias": fixture_id})
+        await run_test(session, "D10 list_note_media", "list_note_media", {"noteIdOrAlias": fixture_id})
 
-            await run_verify_delete(
-                session, f"C5 verify_delete_{key}", get_tool,
-                {"noteIdOrAlias": gid} if gid else {"noteIdOrAlias": "nonexistent"}
-            )
+        alias1 = make_name("alias")
+        alias2 = make_name("alias-del")
+        await run_test(session, "D11 add_alias", "add_alias", {"noteIdOrAlias": fixture_id, "newAlias": alias1})
+        await run_test(session, "D12 add_alias_non_primary", "add_alias", {"noteIdOrAlias": fixture_id, "newAlias": alias2})
+        await run_test(session, "D13 make_alias_primary", "make_alias_primary", {"alias": alias1, "primaryAlias": True})
+        await run_test(session, "D14 remove_alias", "remove_alias", {"alias": alias2})
 
-        # ------------------------------------------------------------------
-        # Phase 3: Domain-Specific Tools
-        # ------------------------------------------------------------------
-        log("\n=== Phase 3: Domain-Specific Tools ===")
+        await run_test(session, "D15 change_note_owner", "change_note_owner", {"noteIdOrAlias": fixture_id, "newOwner": current_username})
 
-        # Create a note for domain tests
-        await run_test_with_store(
-            session, "D0 create_fixture_note", "create_note",
-            {"content": make_name("Fixture note for domain tests")},
-            store_key="fixture_note"
-        )
-        fixture_id = pick_metadata_id("fixture_note") or pick_id("fixture_note")
-        if fixture_id:
-            created["fixture_note"] = fixture_id
+        rev_uuid = (get_list_items(store.get("D9 list_note_revisions", {})) or [{}])[0].get("uuid", "00000000-0000-0000-0000-000000000000")
+        await run_test(session, "D16 get_note_revision_by_id", "get_note_revision_by_id", {"noteIdOrAlias": fixture_id, "revisionUuid": rev_uuid})
 
-        if fixture_id:
-            await run_test(session, "D1 get_note_content", "get_note_content",
-                           {"noteIdOrAlias": fixture_id})
-            await run_test(session, "D2 get_note_metadata", "get_note_metadata",
-                           {"noteIdOrAlias": fixture_id})
-            await run_test(session, "D3 get_note_permissions", "get_note_permissions",
-                           {"noteIdOrAlias": fixture_id})
-            # Get current username for permission tests
-            profile_result = await session.call_tool("get_my_profile", {})
-            profile_data = extract_content(profile_result)
-            current_username = profile_data.get("username", "") if isinstance(profile_data, dict) else ""
-            await run_test(session, "D4 set_note_user_permission", "set_note_user_permission",
-                           {"noteIdOrAlias": fixture_id, "userName": current_username, "canEdit": True})
-            await run_test(session, "D7 set_note_group_permission", "set_note_group_permission",
-                           {"noteIdOrAlias": fixture_id, "groupName": "_EVERYONE", "canEdit": True})
-            await run_test(session, "D8 remove_note_group_permission", "remove_note_group_permission",
-                           {"noteIdOrAlias": fixture_id, "groupName": "_EVERYONE"})
-            await run_test(session, "D9 list_note_revisions", "list_note_revisions",
-                           {"noteIdOrAlias": fixture_id})
-            await run_test(session, "D10 list_note_media", "list_note_media",
-                           {"noteIdOrAlias": fixture_id})
+        # ---- Scope list tests ----
+        await run_test(session, "D30 list_notes_scope_my", "list_all_my_notes")
+        await run_test(session, "D31 list_notes_scope_shared", "list_all_shared_notes")
+        await run_test(session, "D32 list_notes_scope_public", "list_all_public_notes")
+        await run_test(session, "D33 list_notes_scope_pinned", "list_all_pinned_notes")
 
-            # Alias tests
-            alias_name = make_name("alias")
-            alias_name2 = make_name("alias-del")
-            await run_test(session, "D11 add_alias", "add_alias",
-                           {"noteIdOrAlias": fixture_id, "newAlias": alias_name})
-            await run_test(session, "D12 add_alias_non_primary", "add_alias",
-                           {"noteIdOrAlias": fixture_id, "newAlias": alias_name2})
-            await run_test(session, "D13 make_alias_primary", "make_alias_primary",
-                           {"alias": alias_name, "primaryAlias": True})
-            await run_test(session, "D14 remove_alias", "remove_alias",
-                           {"alias": alias_name2})
+        # ---- Revert to revision ----
+        revert_original = make_name("Revert test original")
+        revert_mod = "# Modified\n\n" + make_name("revert mod")
+        await run_test(session, "D18 create_revert_note", "create_note", {"content": revert_original})
+        revert_id = note_id(store, "D18 create_revert_note")
+        await run_test(session, "D18b update_for_revert", "update_note", {"noteIdOrAlias": revert_id, "content": revert_mod})
+        await run_test(session, "D18r list_revert_revisions", "list_note_revisions", {"noteIdOrAlias": revert_id})
+        revert_rev_uuid = (get_list_items(store.get("D18r list_revert_revisions", {})) or [{}])[-1].get("uuid", "00000000-0000-0000-0000-000000000000")
+        await run_test(session, "D18c revert_to_original", "revert_to_revision", {"noteIdOrAlias": revert_id, "revisionUuid": revert_rev_uuid})
+        rr_content = extract_content(await session.call_tool("get_note_content", {"noteIdOrAlias": revert_id}))
+        rr_actual = str(rr_content) if not isinstance(rr_content, str) else rr_content
+        record_result("D18d verify_revert_content", "get_note_content", rr_actual == revert_original, f"expected '{revert_original}', got '{rr_actual}'")
+        await run_test(session, "D18z cleanup_revert_note", "delete_note_by_id", {"noteIdOrAlias": revert_id})
 
-            # Change owner (back to original)
-            await run_test(session, "D15 change_note_owner", "change_note_owner",
-                           {"noteIdOrAlias": fixture_id, "newOwner": current_username})
+        # ---- Media URL resolution ----
+        url_content = "# Media URL Test\n\n![](media/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee)\n\nAlready absolute: ![](https://example.com/image.png)"
+        await run_test(session, "D19 create_media_url_test_note", "create_note", {"content": url_content})
+        media_url_id = note_id(store, "D19 create_media_url_test_note")
+        media_content = await _content(session, media_url_id)
+        media_actual = str(media_content) if not isinstance(media_content, str) else media_content
+        media_ok = ("](media/" not in media_actual) and ("media/" in media_actual)
+        media_reason = "relative media URL still present" if "](media/" in media_actual else "no media/ in content"
+        record_result("D19b verify_media_url_resolution", "get_note_content", media_ok, media_reason if not media_ok else None)
+        await run_test(session, "D19z cleanup_media_url_note", "delete_note_by_id", {"noteIdOrAlias": media_url_id})
 
-            # Revision by ID (if any revisions exist)
-            rev_result = await session.call_tool("list_note_revisions", {"noteIdOrAlias": fixture_id})
-            rev_data = extract_content(rev_result)
-            rev_items = get_list_items(rev_data)
-            if rev_items and isinstance(rev_items, list) and len(rev_items) > 0:
-                first_rev = rev_items[0]
-                if isinstance(first_rev, dict) and first_rev.get("uuid"):
-                    await run_test(session, "D16 get_note_revision_by_id", "get_note_revision_by_id",
-                                   {"noteIdOrAlias": fixture_id, "revisionUuid": first_rev["uuid"]})
+        # ---- Media by id ----
+        media_uuid = (get_list_items(store.get("B2 list_all_my_media", {})) or [{}])[0].get("uuid", "00000000-0000-0000-0000-000000000000")
+        await run_test(session, "D20 get_media_by_id", "get_media_by_id", {"uuid": media_uuid})
 
-            await run_test(session, "D17 get_my_profile", "get_my_profile")
+        # ---- Cleanup ----
+        await run_test(session, "D99 cleanup_fixture_note", "delete_note_by_id", {"noteIdOrAlias": fixture_id})
 
-            # Scope tests for list_all_my_notes
-            await run_test(session, "D30 list_notes_scope_my", "list_all_my_notes")
-            await run_test(session, "D31 list_notes_scope_shared", "list_all_shared_notes")
-            await run_test(session, "D32 list_notes_scope_public", "list_all_public_notes")
-            await run_test(session, "D33 list_notes_scope_pinned", "list_all_pinned_notes")
+        # ---- Leak detection ----
+        _leak_result = extract_content(await session.call_tool("list_all_my_notes", {}))
+        _leak_ids = {it.get("primaryAlias") or it.get("id", "") for it in get_list_items(_leak_result) if isinstance(it, dict) and (it.get("primaryAlias") or it.get("id", "")).startswith(f"t{rid}-")}
+        record_result("LEAK no_leaks", "leak_detection", len(_leak_ids) == 0, f"{len(_leak_ids)} leaked test note(s)" if _leak_ids else None)
 
-            # Revert to revision test
-            if fixture_id:
-                original_content = make_name("Revert test original")
-                mod_content = "# Modified\n\n" + make_name("revert mod")
-
-                await run_test_with_store(
-                    session, "D18 create_revert_note", "create_note",
-                    {"content": original_content},
-                    store_key="revert_note"
-                )
-                revert_id = pick_metadata_id("revert_note") or pick_id("revert_note")
-
-                if revert_id:
-                    await run_test(session, "D18b update_for_revert", "update_note",
-                                   {"noteIdOrAlias": revert_id, "content": mod_content})
-
-                    rev_result = await session.call_tool("list_note_revisions", {"noteIdOrAlias": revert_id})
-                    rev_data = extract_content(rev_result)
-                    rev_items = get_list_items(rev_data)
-                    if rev_items and isinstance(rev_items, list) and len(rev_items) >= 2:
-                        orig_rev = rev_items[-1]
-                        if isinstance(orig_rev, dict) and orig_rev.get("uuid"):
-                            await run_test(session, "D18c revert_to_original", "revert_to_revision",
-                                           {"noteIdOrAlias": revert_id, "revisionUuid": orig_rev["uuid"]})
-
-                            content_result = await session.call_tool("get_note_content", {"noteIdOrAlias": revert_id})
-                            content_data = extract_content(content_result)
-                            actual = str(content_data) if not isinstance(content_data, str) else content_data
-                            if actual == original_content:
-                                results.append({"label": "D18d verify_revert_content", "tool": "get_note_content", "status": "PASSED"})
-                                log("  PASS D18d verify_revert_content")
-                            else:
-                                results.append({"label": "D18d verify_revert_content", "tool": "get_note_content", "status": "FAILED", "reason": f"content mismatch"})
-                                log(f"  FAIL D18d verify_revert_content: expected '{original_content}', got '{actual}'")
-
-                    await run_test(session, "D18z cleanup_revert_note", "delete_note_by_id",
-                                   {"noteIdOrAlias": revert_id})
-
-            # Media URL resolution test
-            if fixture_id:
-                url_test_content = "# Media URL Test\n\n![](media/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee)\n\nAlready absolute: ![](https://example.com/image.png)"
-                await run_test_with_store(
-                    session, "D19 create_media_url_test_note", "create_note",
-                    {"content": url_test_content},
-                    store_key="media_url_note"
-                )
-                media_url_id = pick_metadata_id("media_url_note") or pick_id("media_url_note")
-                if media_url_id:
-                    content_result = await session.call_tool("get_note_content", {"noteIdOrAlias": media_url_id})
-                    content_data = extract_content(content_result)
-                    actual_content = str(content_data) if not isinstance(content_data, str) else content_data
-                    if "](media/" not in actual_content and "media/" in actual_content:
-                        results.append({"label": "D19b verify_media_url_resolution", "tool": "get_note_content", "status": "PASSED"})
-                        log("  PASS D19b verify_media_url_resolution")
-                    else:
-                        reason = "relative media URL still present" if "](media/" in actual_content else "no media/ in content"
-                        results.append({"label": "D19b verify_media_url_resolution", "tool": "get_note_content", "status": "FAILED", "reason": reason})
-                        log(f"  FAIL D19b verify_media_url_resolution: {reason}")
-                    await run_test(session, "D19z cleanup_media_url_note", "delete_note_by_id",
-                                   {"noteIdOrAlias": media_url_id})
-
-            # Media tests - list_all_my_media (passes even with empty list),
-            # delete_media_by_id requires a valid UUID from the media list
-            media_result = await session.call_tool("list_all_my_media", {})
-            media_data = extract_content(media_result)
-            media_items = get_list_items(media_data)
-            if media_items and len(media_items) > 0:
-                first_uuid = media_items[0].get("uuid", "") if isinstance(media_items[0], dict) else ""
-                if first_uuid:
-                    await run_test(session, "D20 get_media_by_id", "get_media_by_id",
-                                   {"uuid": first_uuid})
-
-            # Clean up fixture note
-            await run_test(session, "D99 cleanup_fixture_note", "delete_note_by_id",
-                           {"noteIdOrAlias": fixture_id})
-
-        # ------------------------------------------------------------------
-        # Phase 4: Leak Detection
-        # ------------------------------------------------------------------
-        log("\n=== Phase 4: Leak Detection ===")
-        await _run_leak_detection(session)
-
-        # ------------------------------------------------------------------
-        # Report Summary
-        # ------------------------------------------------------------------
+        # ---- Report ----
         passed = sum(1 for r in results if r["status"] == "PASSED")
         failed = sum(1 for r in results if r["status"] == "FAILED")
 
@@ -580,20 +347,16 @@ async def main():
                     print(f"- **Error**: {r['reason']}")
                     print()
 
-        print(f"\n## Iteration History\n")
-        print(f"| Iteration | Passed | Failed | Fixes Applied |")
-        print(f"|-----------|--------|--------|---------------|")
-        print(f"| 1 | {passed} | {failed} | Initial run |")
-
-        total = len(results)
         print(f"\n---")
-        print(f"**Total tests:** {total} | **PASSED:** {passed} | "
-              f"**FAILED:** {failed}")
+        print(f"**Total tests:** {len(results)} | **PASSED:** {passed} | **FAILED:** {failed}")
 
         if failed == 0:
             print(f"\n**ALL TESTS PASS**")
         else:
             print(f"\n**TESTS FAILING** — see above for details")
+
+async def _content(session: MCPSession, note_id: str) -> Any:
+    return extract_content(await session.call_tool("get_note_content", {"noteIdOrAlias": note_id}))
 
 
 if __name__ == "__main__":
