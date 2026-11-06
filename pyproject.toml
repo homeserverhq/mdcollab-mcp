@@ -1,7 +1,7 @@
 [project]
-name = "hedgedoc-mcp-server"
+name = "mdcollab-mcp-server"
 version = "0.1.0"
-description = "Multi-tenant MCP Proxy Server for HedgeDoc"
+description = "Multi-tenant MCP Proxy Server for mdCollab"
 authors = [{name = "Expert Developer"}]
 dependencies = [
     "fastmcp==3.4.2",

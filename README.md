@@ -1,19 +1,19 @@
-# HedgeDoc MCP Multitenant Proxy Server
+# mdCollab MCP Multitenant Proxy Server
 
 This repository contains a Model Context Protocol (MCP) server that acts
-as a secure, multi-tenant proxy between an AI Assistant and the HedgeDoc
+as a secure, multi-tenant proxy between an AI Assistant and the mdCollab
 backend API. It exposes **27 MCP tools** covering 5 resource domains
 with full CRUD and permission management.
 
 ## ✨ Features
 
 - **🔑 Identity Passthrough** — Extracts the `Authorization: Bearer <token>`
-  header from incoming HTTP requests and forwards it to the HedgeDoc API
+  header from incoming HTTP requests and forwards it to the mdCollab API
   without server-side authentication.
 - **👥 Multi-Tenancy** — Uses Python `contextvars` to maintain thread-safe
   user identity isolation, ensuring all AI-driven actions are scoped to
   the authenticated user's permissions.
-- **📊 Full HedgeDoc Coverage** — 27 tools mapped to HedgeDoc API endpoints
+- **📊 Full mdCollab Coverage** — 27 tools mapped to mdCollab API endpoints
   across 5 resource domains.
 - **⚡ TOON Optimization** — Bulk list responses are automatically compressed
   using TOON (Token-Optimized Object Notation) to reduce token consumption
@@ -22,17 +22,17 @@ with full CRUD and permission management.
   default. Full objects are available via an `include_all_fields` flag.
 - **🧪 Comprehensive Testing** — 39 automated tests covering all tool
   domains, run via the test runner pipeline.
-- **🏷️ Tool Annotations** — All tools expose standard MCP ToolAnnotations hints (readOnlyHint, destructiveHint, idempotentHint, openWorldHint). The tags field carries grouping metadata (basic/primary/advanced + hedgedoc).
+- **🏷️ Tool Annotations** — All tools expose standard MCP ToolAnnotations hints (readOnlyHint, destructiveHint, idempotentHint, openWorldHint). The tags field carries grouping metadata (basic/primary/advanced + mdcollab).
 
 ## 🔧 Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `HEDGEDOC_BASE_URL` | Yes | Docker-internal URL of the HedgeDoc API (e.g. `http://hedgedoc-backend:3000`). |
+| `MDCOLLAB_BASE_URL` | Yes | Docker-internal URL of the mdCollab API (e.g. `http://mdcollab-backend:3000`). |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on. |
 | `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is silently forced to `False` for aggregate list operations. |
 | `IS_STATEFUL` | No | When `true`, uses stateful Streamable HTTP with session tracking. When `false` (default), uses stateless mode. |
-| `HEDGEDOC_PUBLIC_URL` | No | Public-facing URL for `note_url` in responses. Defaults to `HEDGEDOC_BASE_URL` if not set. |
+| `MDCOLLAB_PUBLIC_URL` | No | Public-facing URL for `note_url` in responses. Defaults to `MDCOLLAB_BASE_URL` if not set. |
 
 ## 📦 Installation & Local Development
 
@@ -43,8 +43,8 @@ with full CRUD and permission management.
     ```
 3. Run the server:
     ```bash
-    export HEDGEDOC_BASE_URL=http://localhost:7462
-    export HEDGEDOC_PUBLIC_URL=https://hedgedoc.example.com
+    export MDCOLLAB_BASE_URL=http://localhost:7462
+    export MDCOLLAB_PUBLIC_URL=https://mdcollab.example.com
     export MCP_SERVER_PORT=80
     python -m src.main
     ```
@@ -54,15 +54,15 @@ with full CRUD and permission management.
 Build and run the server using Docker:
 
 ```bash
-docker build -t hedgedoc-mcp:latest .
-docker run -d --name hedgedoc-mcp \
-    -e HEDGEDOC_BASE_URL="http://hedgedoc-backend:3000" \
-    -e HEDGEDOC_PUBLIC_URL="https://hedgedoc.example.com" \
+docker build -t mdcollab-mcp:latest .
+docker run -d --name mdcollab-mcp \
+    -e MDCOLLAB_BASE_URL="http://mdcollab-backend:3000" \
+    -e MDCOLLAB_PUBLIC_URL="https://mdcollab.example.com" \
     -e MCP_SERVER_PORT=80 \
     -e IS_STATEFUL=false \
-    hedgedoc-mcp:latest
+    mdcollab-mcp:latest
 
-The MCP server serves at `http://hedgedoc-mcp:80/mcp` (Streamable HTTP).
+The MCP server serves at `http://mdcollab-mcp:80/mcp` (Streamable HTTP).
 ```
 
 ## ⚠️ Important Notes

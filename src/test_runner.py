@@ -1,5 +1,5 @@
 """
-End-to-end test harness for HedgeDoc MCP Server.
+End-to-end test harness for mdCollab MCP Server.
 
 Flat unconditional execution — a single unrolled list of tests. No loops
 over tests, no conditional gating, no skipping. Every test runs every time.
@@ -108,7 +108,7 @@ class MCPSession:
         result = await self._send("initialize", {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": {"name": "hedgedoc-test-runner", "version": "1.0"},
+            "clientInfo": {"name": "mdcollab-test-runner", "version": "1.0"},
         })
         await self._send_notification("notifications/initialized")
         return result
@@ -225,7 +225,7 @@ def make_name(base: str) -> str:
 
 
 async def main():
-    print("# Test Report — HedgeDoc MCP Server")
+    print("# Test Report — mdCollab MCP Server")
     print(f"\n**Date**: {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}")
     print(f"**Server**: {MCP_URL}")
     print(f"**Run ID**: {rid}")

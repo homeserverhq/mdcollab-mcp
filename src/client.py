@@ -59,13 +59,13 @@ def _denormalize_response(data: Any) -> Any:
     return data
 
 
-class HedgeDocClient:
+class mdCollabClient:
     def __init__(self, base_url: Optional[str] = None):
-        self.base_url = (base_url or os.getenv("HEDGEDOC_BASE_URL", "")).rstrip("/")
-        self.public_url = (os.getenv("HEDGEDOC_PUBLIC_URL", "") or self.base_url).rstrip("/")
+        self.base_url = (base_url or os.getenv("MDCOLLAB_BASE_URL", "")).rstrip("/")
+        self.public_url = (os.getenv("MDCOLLAB_PUBLIC_URL", "") or self.base_url).rstrip("/")
         if not self.base_url:
             raise ValueError(
-                "HedgeDoc URL required. Set HEDGEDOC_BASE_URL env var "
+                "mdCollab URL required. Set MDCOLLAB_BASE_URL env var "
                 "or pass base_url."
             )
 
