@@ -28,11 +28,11 @@ with full CRUD and permission management.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `MDCOLLAB_BASE_URL` | Yes | Docker-internal URL of the mdCollab API (e.g. `http://mdcollab-backend:3000`). |
+| `MDCOLLAB_INTERNAL_URL` | Yes | Docker-internal URL of the mdCollab API (e.g. `http://mdcollab-backend:3000`). |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on. |
 | `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is silently forced to `False` for aggregate list operations. |
 | `IS_STATEFUL` | No | When `true`, uses stateful Streamable HTTP with session tracking. When `false` (default), uses stateless mode. |
-| `MDCOLLAB_PUBLIC_URL` | No | Public-facing URL for `note_url` in responses. Defaults to `MDCOLLAB_BASE_URL` if not set. |
+| `MDCOLLAB_PUBLIC_URL` | No | Public-facing URL for `note_url` in responses. Defaults to `MDCOLLAB_INTERNAL_URL` if not set. |
 
 ## 📦 Installation & Local Development
 
@@ -43,7 +43,7 @@ with full CRUD and permission management.
     ```
 3. Run the server:
     ```bash
-    export MDCOLLAB_BASE_URL=http://localhost:7462
+    export MDCOLLAB_INTERNAL_URL=http://localhost:7462
     export MDCOLLAB_PUBLIC_URL=https://mdcollab.example.com
     export MCP_SERVER_PORT=80
     python -m src.main
@@ -56,7 +56,7 @@ Build and run the server using Docker:
 ```bash
 docker build -t mdcollab-mcp:latest .
 docker run -d --name mdcollab-mcp \
-    -e MDCOLLAB_BASE_URL="http://mdcollab-backend:3000" \
+    -e MDCOLLAB_INTERNAL_URL="http://mdcollab-backend:3000" \
     -e MDCOLLAB_PUBLIC_URL="https://mdcollab.example.com" \
     -e MCP_SERVER_PORT=80 \
     -e IS_STATEFUL=false \

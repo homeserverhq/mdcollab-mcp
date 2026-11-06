@@ -703,9 +703,9 @@ async def remove_alias(
 
 
 def main():
-    if not os.getenv("MDCOLLAB_BASE_URL"):
-        print("ERROR: MDCOLLAB_BASE_URL environment variable is required", file=sys.stderr)
-        print("Example: export MDCOLLAB_BASE_URL=http://mdcollab-backend:3000", file=sys.stderr)
+    if not os.getenv("MDCOLLAB_INTERNAL_URL"):
+        print("ERROR: MDCOLLAB_INTERNAL_URL environment variable is required", file=sys.stderr)
+        print("Example: export MDCOLLAB_INTERNAL_URL=http://mdcollab-backend:3000", file=sys.stderr)
         sys.exit(1)
 
     port_env = os.getenv("MCP_SERVER_PORT")
